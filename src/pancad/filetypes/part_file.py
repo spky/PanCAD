@@ -64,10 +64,9 @@ class PartFile(PancadThing):
                  container: FeatureContainer | None=None,
                  *,
                  uid: str | None=None) -> None:
-        self.name = name
         self.uid = uid
         self.container = container
-        super().__init__()
+        super().__init__(name=name)
 
     # Properties
     @property

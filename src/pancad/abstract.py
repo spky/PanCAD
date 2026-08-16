@@ -11,7 +11,7 @@ from pancad.constants import ConstraintReference
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import Self, Optional, Any, Type, TypeVar, ClassVar
+    from typing import Self, Optional, Type, TypeVar, ClassVar
     from uuid import UUID
 
     T = TypeVar("T")
@@ -23,16 +23,31 @@ class PancadThing(ABC):
     """An abstract class defining the properties and methods that all pancad
     elements, constraints, or whatever must have with no exceptions.
     """
-    def __init__(self, system: Optional[AbstractGeometrySystem]=None):
-        self._system: Optional[AbstractGeometrySystem] = None
-        if system is not None:
+    def __init__(self, system: AbstractGeometrySystem | None=None, name: str | None=None):
+        self._system: AbstractGeometrySystem | None = None
+        if system:
             self.system = system
         self._uid: UUID | str
+        self.name = name
 
     STR_VERBOSE = False
     """A flag allowing pancad objects to print detailed strings and reprs."""
 
     # Properties
+    @property
+    def name(self) -> str | None:
+        """The name of the element. Must either be None or unique in its system.
+
+        :raises ValueError: When trying to set the name to an already taken system name.
+        """
+        return self._name
+
+    @name.setter
+    def name(self, value: str | None) -> None:
+        if value is not None and self.system and value in self.system:
+            raise ValueError(f"Name '{value}' is already used in system {self.system}")
+        self._name = value
+
     @property
     def uid(self) -> str | UUID:
         """The unique id of the element, used for CAD interoperability. Can be
@@ -81,21 +96,10 @@ class PancadThing(ABC):
 class AbstractFeature(PancadThing):
     """A class defining the interfaces provided by pancad Feature elements."""
 
-    def __init__(self, system: Optional[AbstractGeometrySystem]=None, name: str="") -> None:
-        super().__init__(system)
-        self._name = name
+    def __init__(self, system: AbstractGeometrySystem | None=None, name: str="") -> None:
+        super().__init__(system, name)
 
     # Properties #
-    @property
-    def name(self) -> str:
-        """The name of the feature. Usually user assigned or automatically
-        generated. Does not need to be unique.
-        """
-        return self._name
-    @name.setter
-    def name(self, value: str) -> None:
-        self._name = value
-
     def get_dependencies(self) -> list[PancadThing]:
         """Returns the feature's external feature dependencies."""
         if self.system is None:
@@ -122,10 +126,11 @@ class AbstractGeometry(PancadThing):
                  *,
                  system: Optional[AbstractGeometrySystem]=None,
                  feature: Optional[AbstractFeature]=None,
+                 name: str | None=None
                  ) -> None:
         self._feature: Optional[AbstractFeature] = None
         self._references = references
-        super().__init__(system)
+        super().__init__(system, name)
         if feature is not None:
             self.feature = feature
         for _, child in self.children.items():
@@ -255,7 +260,7 @@ class AbstractGeometrySystem(AbstractGeometry):
         """The constraints on the elements inside the system's context."""
 
     @abstractmethod
-    def __contains__(self, item: Any) -> bool:
+    def __contains__(self, item: object) -> bool:
         """Checks whether the item is inside the geometry system."""
 
 class AbstractFeatureSystem(AbstractGeometrySystem):
@@ -287,8 +292,9 @@ class AbstractConstraint(PancadThing):
     """The SketchConstraint enum value for the constraint type."""
 
     def __init__(self,
-                 system: Optional[AbstractGeometrySystem]=None) -> None:
-        super().__init__(system)
+                 system: Optional[AbstractGeometrySystem]=None,
+                 name: str | None=None) -> None:
+        super().__init__(system, name)
         self._feature: Optional[AbstractFeature] = None
         if self.system and self.system.feature:
             self.feature = self.system.feature

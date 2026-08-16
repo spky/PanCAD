@@ -4,7 +4,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from pancad.abstract import AbstractGeometrySystem, AbstractFeatureSystem
+from pancad.abstract import (
+    AbstractGeometrySystem, AbstractFeatureSystem, PancadThing,
+    AbstractGeometry, AbstractConstraint
+)
 from pancad.constants import ConstraintReference
 from pancad.exceptions import SketchGeometryHasConstraintsError
 from pancad.geometry.coordinate_system import CoordinateSystem
@@ -19,9 +22,7 @@ if TYPE_CHECKING:
     from uuid import UUID
     from typing import Self
 
-    from pancad.abstract import (
-        AbstractFeature, AbstractConstraint, AbstractGeometry, PancadThing
-    )
+    from pancad.abstract import AbstractFeature
     from pancad.geometry.line import Axis
     from pancad.geometry.plane import Plane
     from pancad.geometry.point import Point
@@ -256,8 +257,12 @@ class FeatureSystem(AbstractFeatureSystem):
         return self
 
     # Python Dunders
-    def __contains__(self, item: PancadThing) -> bool:
-        return item in [*self.features, *self.constraints, self.feature]
+    def __contains__(self, item: object) -> bool:
+        if isinstance(item, PancadThing):
+            return item in [*self.features, *self.constraints, self.feature]
+        if isinstance(item, str):
+            return any(item == t.name for t in [*self.features, *self.constraints, self.feature])
+        return False
 
     def __len__(self) -> int:
         return len(self.coordinate_system)
@@ -509,8 +514,12 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     def __len__(self) -> int:
         return len(self.coordinate_system)
 
-    def __contains__(self, item: AbstractGeometry | AbstractConstraint) -> bool:
-        return item in self.geometry or item in self.constraints
+    def __contains__(self, item: object) -> bool:
+        if isinstance(item, (AbstractGeometry, AbstractConstraint)):
+            return item in self.geometry or item in self.constraints
+        if isinstance(item, str):
+            return any(item == t.name for t in [*self.geometry, *self.constraints])
+        return False
 
     def __repr__(self) -> str:
         return super().__repr__().format(
