@@ -276,8 +276,7 @@ class AbstractFeatureSystem(AbstractGeometrySystem):
         """
 
     @abstractmethod
-    def get_topo_dependencies(self, value: AbstractFeature | AbstractConstraint
-                              ) -> list[AbstractFeature]:
+    def get_topo_dependencies(self, value: AbstractFeature) -> list[AbstractFeature]:
         """Returns the dependencies of the value from its topological ordering
         For example, a sketch inside the system would be dependent on the
         features involved in constraining its pose.

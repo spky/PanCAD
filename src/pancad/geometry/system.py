@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from pancad.abstract import (
     AbstractGeometrySystem, AbstractFeatureSystem, PancadThing,
-    AbstractGeometry, AbstractConstraint
+    AbstractGeometry, AbstractConstraint, AbstractFeature
 )
 from pancad.constants import ConstraintReference
 from pancad.exceptions import SketchGeometryHasConstraintsError
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     from uuid import UUID
     from typing import Self
 
-    from pancad.abstract import AbstractFeature
     from pancad.geometry.line import Axis
     from pancad.geometry.plane import Plane
     from pancad.geometry.point import Point
@@ -151,7 +150,7 @@ class FeatureSystem(AbstractFeatureSystem):
             constraint.feature = value
 
     #Public Methods
-    def get_dependencies(self) -> list[AbstractFeature]:
+    def get_dependencies(self) -> list[PancadThing]:
         dependencies = set()
         for feature in self.features:
             dependencies.update(feature.get_dependencies())
@@ -168,12 +167,12 @@ class FeatureSystem(AbstractFeatureSystem):
             msg = f"Provided value '{value}' is not in system '{self}'"
             raise LookupError(msg)
         # Determine the topological index of the value
-        if value in self.constraints:
+        if isinstance(value, AbstractConstraint):
             # Constraint topological indices are the index of its last
             # constrained feature, since the constraint can't exist without all
             # of its features.
-            return max(self.features.index(feat)
-                       for feat in value.get_dependencies())
+            return max(self.features.index(f) for f in value.get_dependencies()
+                       if isinstance(f, AbstractFeature))
         return self.features.index(value)
 
     def get_constraints_on(self, value: AbstractFeature) -> list[AbstractConstraint]:
@@ -185,18 +184,19 @@ class FeatureSystem(AbstractFeatureSystem):
                 constraints.append(constraint)
         return constraints
 
-    def get_topo_dependencies(self, value: AbstractFeature | AbstractConstraint
-                              ) -> list[AbstractFeature]:
+    def get_topo_dependencies(self, value: AbstractFeature) -> list[AbstractFeature]:
         """Returns the dependencies of the value from its topological ordering. For example, a
         sketch inside the system would be dependent on the features constraining its pose.
         """
-        dependencies = set()
+        dependencies: set[AbstractFeature] = set()
         index = self.get_topo_index(value)
 
         # Find dependencies from constraints
         for constraint in self.get_constraints_on(value):
-            dependencies.update(dep for dep in constraint.get_dependencies()
-                                if self.get_topo_index(dep) < index)
+            dependencies.update(
+                dep for dep in constraint.get_dependencies()
+                if isinstance(dep, AbstractFeature) and self.get_topo_index(dep) < index
+            )
         return list(dependencies)
 
     def get_dependents(self, element: AbstractFeature | AbstractConstraint | None=None
