@@ -32,20 +32,18 @@ class FeatureSystem(AbstractFeatureSystem):
     """A class managing the relationships between features, their internal
     geometry, and constraints between them.
 
-    :param coordinate_system: The coordinate system at the center of the feature
-        system.
+    :param coordinate_system: The coordinate system at the center of the feature system.
     :param features: A sequence of feature elements.
-    :param constraints: A sequence of constraints applied to the geometry in the
-        features.
+    :param constraints: A sequence of constraints applied to the geometry in the features.
     :param feature: The feature that this feature system is owned by.
-    :param uid: The unique id of this feature system. Auto-generated if not
-        provided.
+    :param uid: The unique id of this feature system. Auto-generated if not provided.
     """
     def __init__(self,
                  coordinate_system: CoordinateSystem | None=None,
                  features: Iterable[AbstractFeature] | None=None,
                  constraints: Iterable[AbstractConstraint] | None=None, *,
-                 feature: AbstractFeature | None=None, uid: str | UUID | None=None) -> None:
+                 feature: AbstractFeature | None=None,
+                 uid: str | UUID | None=None) -> None:
         # FeatureSystems are always 3D.
         if not coordinate_system:
             coordinate_system = CoordinateSystem((0, 0, 0))
@@ -119,6 +117,7 @@ class FeatureSystem(AbstractFeatureSystem):
     def features(self) -> SystemFeatureList:
         """The features inside the system's context."""
         return self._features
+
     @features.setter
     def features(self, values: Sequence[AbstractFeature]) -> None:
         msg = ("Full FeatureSystem features cannot be set yet: issue #177,"
@@ -129,6 +128,7 @@ class FeatureSystem(AbstractFeatureSystem):
     def constraints(self) -> FeatureConstraintList:
         """The constraints on the features inside the system's context."""
         return self._constraints
+
     @constraints.setter
     def constraints(self, values: Sequence[AbstractConstraint]) -> None:
         msg = ("Full FeatureSystem constraints cannot be set yet: issue #177,"
@@ -139,6 +139,7 @@ class FeatureSystem(AbstractFeatureSystem):
     def feature(self) -> AbstractFeature:
         """The feature that owns this system."""
         return self._feature
+
     @feature.setter
     def feature(self, value: AbstractFeature) -> None:
         self._feature = value
@@ -159,8 +160,7 @@ class FeatureSystem(AbstractFeatureSystem):
         return list(dependencies)
 
     def get_topo_index(self, value: AbstractFeature | AbstractConstraint) -> int:
-        """Returns the index of the value that defines its place in the system's
-        topological ordering.
+        """Returns the index of the value in the system's topological ordering.
 
         :raises LookupError: When the value is not in the system.
         """
@@ -187,9 +187,8 @@ class FeatureSystem(AbstractFeatureSystem):
 
     def get_topo_dependencies(self, value: AbstractFeature | AbstractConstraint
                               ) -> list[AbstractFeature]:
-        """Returns the dependencies of the value from its topological ordering
-        For example, a sketch inside the system would be dependent on the
-        features involved in constraining its pose.
+        """Returns the dependencies of the value from its topological ordering. For example, a
+        sketch inside the system would be dependent on the features constraining its pose.
         """
         dependencies = set()
         index = self.get_topo_index(value)
@@ -202,9 +201,7 @@ class FeatureSystem(AbstractFeatureSystem):
 
     def get_dependents(self, element: AbstractFeature | AbstractConstraint | None=None
                        ) -> list[AbstractFeature]:
-        """Returns features that depend on the element, accounting for the topological ordering of
-        the features.
-        """
+        """Returns features that depend on the element, accounting for the topological order."""
         if element not in self:
             raise LookupError(f"Provided value '{element}' is not in system '{self}'")
         index = self.get_topo_index(element)
@@ -271,14 +268,12 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     This class can act as a standalone set of geometry or be contained inside a
     class instance of a feature like Sketch or FeatureContainer.
 
-    :param coordinate_system: The coordinate system at the center of the
-        geometry system.
-    :param geometry: A sequence of geometry elements or a sequence of (geometry,
-        bool) tuples. When bools are provided, they indicate whether the
-        geometry should be construction or normal.
-    :param constraints: A sequence of constraints applied to the geometry.
-    :param construction: A subset of the geometry to mark as construction.
-        Defaults to an empty set, indicating all geometry is non-construction.
+    :param coordinate_system: The coordinate system at the center of the geometry system.
+    :param geometry: A sequence of geometry elements or a sequence of (geometry, bool) tuples.
+        When bools are provided, they indicate whether the geometry should be construction/normal.
+    :param constraints: The constraints applied to the geometry.
+    :param construction: A subset of the geometry to mark as construction. Defaults to an empty
+        set, indicating all geometry is non-construction.
     :param feature: The feature that this system is owned by.
     """
     def __init__(self,
@@ -340,14 +335,13 @@ class SketchGeometrySystem(AbstractGeometrySystem):
 
     @property
     def construction(self) -> list[bool]:
-        """A list of booleans indicating whether each index of the geometry tuple
-        is construction geometry.
+        """A list of construction/non-construction booleans in the same order as their
+        corresponding geometry elements.
 
         :getter: Returns a list of bools corresponding to each geometry index.
-        :setter: Sets the construction tuple after checking that it is the same
-            length as the geometry tuple.
-        :raises ValueError: Raised when the construction tuple and geometry tuple
-            are not the same length.
+        :setter: Sets the construction tuple after checking that it is the same length as the
+            geometry tuple.
+        :raises ValueError: Raised when the construction/geometry tuples are not the same length.
         """
         return [g.uid in self._construction for g in self.geometry]
 
@@ -375,6 +369,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     def constraints(self) -> SketchConstraintList:
         """All constraints internal to the system."""
         return self._constraints
+
     @constraints.setter
     def constraints(self, values: Sequence[AbstractConstraint]) -> None:
         self._constraints = SketchConstraintList(self, values)
@@ -383,6 +378,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     def feature(self) -> AbstractFeature:
         """The feature that owns this system."""
         return self._feature
+
     @feature.setter
     def feature(self, value: AbstractFeature) -> None:
         self._feature = value
@@ -420,11 +416,10 @@ class SketchGeometrySystem(AbstractGeometrySystem):
 
     def get_dependents(self, element: AbstractGeometry | AbstractConstraint | None=None
                        ) -> list[PancadThing]:
-        """Gets the dependents in the scope of the system or an element in the
-        system.
+        """Gets the dependents in the scope of the system or an element in the system.
 
-        :param element: The element to look for dependents of. When None, all
-            dependents for the system are returned.
+        :param element: The element to look for dependents of. All dependents for the system are
+            returned when provided None.
         :raises LookupError: When the element is not in the system.
         """
         if element is None:
@@ -458,8 +453,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         """Adds an already generated geometry element to the sketch.
 
         :param geometry: A 2D geometry element.
-        :param construction: Sets whether the geometry is construction. Defaults
-            to 'False'.
+        :param construction: Sets whether the geometry is construction. Defaults to 'False'.
         """
         self._geometry.append(geometry)
         if construction:
@@ -468,10 +462,8 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     def add_constraint(self, constraint: AbstractConstraint) -> None:
         """Adds an already generated constraint to the system.
 
-        :param constraint: A constraint referring to geometry that is already in
-            the system.
-        :raises LookupError: Raised when the constraint's dependencies are not in
-            the sketch.
+        :param constraint: A constraint referring to geometry that is already in the system.
+        :raises LookupError: Raised when the constraint's dependencies are not in the sketch.
         """
         if all(geometry in self for geometry in constraint.get_parents()):
             self.constraints.append(constraint)
@@ -495,8 +487,8 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         return all(sg.is_equal(og) for sg, og in zip(self.geometry, other.geometry))
 
     def update(self, other: SketchGeometrySystem) -> Self:
-        """Updates the origin, axes, planes and context of the Sketch to match
-        another Sketch. Does not directly modify the geometry inside the sketch.
+        """Updates the origin, axes, planes and context of the Sketch to match another Sketch.
+        Does not directly modify the geometry inside the sketch.
         """
         self.coordinate_system.update(other.coordinate_system)
         return self
