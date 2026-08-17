@@ -250,9 +250,7 @@ class AbstractGeometrySystem(AbstractGeometry):
 
     @abstractmethod
     def get_dependents(self, element: PancadThing) -> list[PancadThing]:
-        """Must return any elements that depend on the element in the context of
-        the system.
-        """
+        """Must return any elements that depend on the element in the context of the system."""
 
     @property
     @abstractmethod
