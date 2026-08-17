@@ -404,15 +404,14 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         return self.coordinate_system.y_axis
 
     # Public Methods
-    def get_dependencies(self) -> list[AbstractFeature]:
+    def get_dependencies(self) -> list[PancadThing]:
         """Gets all the features this system depends on."""
         dependencies = set()
         for constraint in self.constraints:
             dependencies.update(constraint.get_dependencies())
         return list(dependencies)
 
-    def get_dependents(self, element: AbstractGeometry | AbstractConstraint | None=None
-                       ) -> list[PancadThing]:
+    def get_dependents(self, element: PancadThing | None=None) -> list[PancadThing]:
         """Gets the dependents in the scope of the system or an element in the system.
 
         :param element: The element to look for dependents of. All dependents for the system are
@@ -421,19 +420,20 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         """
         if element is None:
             # Get all dependents
-            dependents = set()
+            self_dependents = set()
             for value in [*self.geometry, *self.constraints]:
-                dependents.update(self.get_dependents(value))
-            return list(dependents)
+                self_dependents.update(self.get_dependents(value))
+            return list(self_dependents)
+        if not isinstance(element, (AbstractGeometry, AbstractConstraint)):
+            raise NotImplementedError(f"Unsupported PancadThing type: {type(element)}")
         # Get element filtered dependents
         if element not in self:
             msg = f"Provided element '{element}' is not in system '{self}'"
             raise LookupError(msg)
-        dependents = []
+        dependents: list[PancadThing] = []
         for constraint in self.constraints:
             # Check if any constraints depend on the element.
-            if any(constrained.uid == element.uid
-                   for constrained in constraint.get_parents()):
+            if any(constrained == element for constrained in constraint.get_parents()):
                 dependents.append(constraint)
         return dependents
 
