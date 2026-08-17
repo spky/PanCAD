@@ -19,6 +19,7 @@ from pancad.geometry.unique_lists import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from uuid import UUID
     from typing import Self
 
@@ -41,17 +42,15 @@ class FeatureSystem(AbstractFeatureSystem):
         provided.
     """
     def __init__(self,
-                 coordinate_system: CoordinateSystem=None,
-                 features: Sequence[AbstractFeature]=None,
-                 constraints: Sequence[AbstractConstraint]=None, *,
-                 feature: AbstractFeature=None, uid: str | UUID=None) -> None:
+                 coordinate_system: CoordinateSystem | None=None,
+                 features: Iterable[AbstractFeature] | None=None,
+                 constraints: Iterable[AbstractConstraint] | None=None, *,
+                 feature: AbstractFeature | None=None, uid: str | UUID | None=None) -> None:
         # FeatureSystems are always 3D.
-        if coordinate_system is None:
+        if not coordinate_system:
             coordinate_system = CoordinateSystem((0, 0, 0))
-        if (error := coordinate_system.system) is not None:
-            msg = f"""Provided CoordinateSystem might already be in another
-                      system. coordinate_system.system value: '{error}'"""
-            raise ValueError(msg)
+        if coordinate_system.system:
+            raise ValueError(f"coordinate_system already has system: {coordinate_system.system}")
         self._coordinate_system = coordinate_system
         # Initialize references and parent class properties
         self.uid = uid
@@ -177,8 +176,7 @@ class FeatureSystem(AbstractFeatureSystem):
                        for feat in value.get_dependencies())
         return self.features.index(value)
 
-    def get_constraints_on(self, value: AbstractFeature
-                           ) -> list[AbstractConstraint]:
+    def get_constraints_on(self, value: AbstractFeature) -> list[AbstractConstraint]:
         """Returns the constraints applied to the value inside the system."""
         constraints = []
         for constraint in self.constraints:
@@ -202,26 +200,21 @@ class FeatureSystem(AbstractFeatureSystem):
                                 if self.get_topo_index(dep) < index)
         return list(dependencies)
 
-    def get_dependents(self, element: AbstractFeature | AbstractConstraint=None
+    def get_dependents(self, element: AbstractFeature | AbstractConstraint | None=None
                        ) -> list[AbstractFeature]:
-        """Returns features that depend on the element, accounting for the
-        topological ordering of the features.
+        """Returns features that depend on the element, accounting for the topological ordering of
+        the features.
         """
         if element not in self:
-            msg = f"Provided value '{element}' is not in system '{self}'"
-            raise LookupError(msg)
+            raise LookupError(f"Provided value '{element}' is not in system '{self}'")
         index = self.get_topo_index(element)
         return [dep for dep in self.get_direct_dependents(element)
                 if self.get_topo_index(dep) > index]
 
-    def get_direct_dependents(self, feature: AbstractFeature
-                              ) -> list[AbstractFeature]:
-        """Finds the dependencies of the feature not accounting for topological
-        order.
-        """
+    def get_direct_dependents(self, feature: AbstractFeature) -> list[AbstractFeature]:
+        """Finds the dependencies of the feature not accounting for topological order."""
         if feature not in self:
-            msg = f"Provided feature '{feature}' is not in system '{self}'"
-            raise LookupError(msg)
+            raise LookupError(f"Provided feature '{feature}' is not in system '{self}'")
         dependents = set()
 
         # Get features constrained together with the feature.
@@ -290,10 +283,10 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     """
     def __init__(self,
                  coordinate_system: CoordinateSystem,
-                 geometry: Sequence[AbstractGeometry
-                                    | Sequence[AbstractGeometry, bool]]=None,
-                 constraints: Sequence[AbstractConstraint]=None, *,
-                 feature: AbstractFeature=None, uid: str | UUID=None) -> None:
+                 geometry: Iterable[AbstractGeometry | Sequence[AbstractGeometry, bool]]
+                                    | None=None,
+                 constraints: Iterable[AbstractConstraint] | None=None, *,
+                 feature: AbstractFeature | None=None, uid: str | UUID | None=None) -> None:
         # Initialize system and feature references first
         self.uid = uid
         self._geometry = SketchGeometryList(self, [])
@@ -425,7 +418,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
             dependencies.update(constraint.get_dependencies())
         return list(dependencies)
 
-    def get_dependents(self, element: AbstractGeometry | AbstractConstraint=None
+    def get_dependents(self, element: AbstractGeometry | AbstractConstraint | None=None
                        ) -> list[PancadThing]:
         """Gets the dependents in the scope of the system or an element in the
         system.
@@ -452,8 +445,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
                 dependents.append(constraint)
         return dependents
 
-    def get_constraints_on(self, geometry: AbstractGeometry
-                           ) -> list[AbstractConstraint]:
+    def get_constraints_on(self, geometry: AbstractGeometry) -> list[AbstractConstraint]:
         """Returns the sketch constraints that are applied to the geometry."""
         constraints = []
         for constraint in self.constraints:
@@ -462,8 +454,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
                 constraints.append(constraint)
         return constraints
 
-    def add_geometry(self, geometry: AbstractGeometry,
-                     construction: bool=False) -> None:
+    def add_geometry(self, geometry: AbstractGeometry, construction: bool=False) -> None:
         """Adds an already generated geometry element to the sketch.
 
         :param geometry: A 2D geometry element.
@@ -535,11 +526,12 @@ class TwoDSketchSystem(SketchGeometrySystem):
     :param coordinate_system: Will be initialized at (0, 0) when None.
     """
     def __init__(self,
-                 geometry: Sequence[AbstractGeometry
-                                    | Sequence[AbstractGeometry, bool]]=None,
-                 constraints: Sequence[AbstractConstraint]=None, *,
-                 feature: AbstractFeature=None, uid: str | UUID=None,
-                 coordinate_system: CoordinateSystem=None) -> None:
+                 geometry: Iterable[AbstractGeometry | Sequence[AbstractGeometry, bool]]
+                           | None=None,
+                 constraints: Iterable[AbstractConstraint] | None=None, *,
+                 feature: AbstractFeature | None=None,
+                 uid: str | UUID | None=None,
+                 coordinate_system: CoordinateSystem | None=None) -> None:
         if coordinate_system is None:
             coordinate_system = CoordinateSystem((0, 0))
         if len(coordinate_system) != 2:
@@ -556,11 +548,12 @@ class ThreeDSketchSystem(SketchGeometrySystem):
     :param coordinate_system: Will be initialized at (0, 0, 0) when None.
     """
     def __init__(self,
-                 geometry: Sequence[AbstractGeometry
-                                    | Sequence[AbstractGeometry, bool]]=None,
-                 constraints: Sequence[AbstractConstraint]=None, *,
-                 feature: AbstractFeature=None, uid: str | UUID=None,
-                 coordinate_system: CoordinateSystem=None) -> None:
+                 geometry: Iterable[AbstractGeometry | Sequence[AbstractGeometry, bool]]
+                           | None=None,
+                 constraints: Iterable[AbstractConstraint] | None=None, *,
+                 feature: AbstractFeature | None=None,
+                 uid: str | UUID | None=None,
+                 coordinate_system: CoordinateSystem | None=None) -> None:
         if coordinate_system is None:
             coordinate_system = CoordinateSystem((0, 0, 0))
         if len(coordinate_system) != 3:
