@@ -101,17 +101,17 @@ class FeatureSystem(AbstractFeatureSystem):
     @property
     def xy_plane(self) -> Plane:
         """The xy plane of the system's coordinate system."""
-        return self.coordinate_system.get_xy_plane()
+        return self.coordinate_system.xy_plane
 
     @property
     def xz_plane(self) -> Plane:
         """The xz plane of the system's coordinate system."""
-        return self.coordinate_system.get_xz_plane()
+        return self.coordinate_system.xz_plane
 
     @property
     def yz_plane(self) -> Plane:
         """The yz plane of the system's coordinate system."""
-        return self.coordinate_system.get_yz_plane()
+        return self.coordinate_system.yz_plane
 
     @property
     def features(self) -> SystemFeatureList:
@@ -136,14 +136,14 @@ class FeatureSystem(AbstractFeatureSystem):
         raise NotImplementedError(msg)
 
     @property
-    def feature(self) -> AbstractFeature:
+    def feature(self) -> AbstractFeature | None:
         """The feature that owns this system."""
         return self._feature
 
     @feature.setter
-    def feature(self, value: AbstractFeature) -> None:
+    def feature(self, value: AbstractFeature | None) -> None:
         self._feature = value
-        for child in self.children:
+        for child in self.children.values():
             if child is self:
                 continue
             child.feature = value
