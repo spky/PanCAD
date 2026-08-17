@@ -199,14 +199,19 @@ class FeatureSystem(AbstractFeatureSystem):
             )
         return list(dependencies)
 
-    def get_dependents(self, element: AbstractFeature | AbstractConstraint | None=None
-                       ) -> list[AbstractFeature]:
+    def get_dependents(self, element: PancadThing) -> list[PancadThing]:
         """Returns features that depend on the element, accounting for the topological order."""
+        if isinstance(element, AbstractGeometry):
+            raise NotImplementedError("Getting the system geometry dependents not supported")
+        if isinstance(element, AbstractConstraint):
+            raise NotImplementedError("Getting the system constraint dependents not supported")
         if element not in self:
-            raise LookupError(f"Provided value '{element}' is not in system '{self}'")
-        index = self.get_topo_index(element)
-        return [dep for dep in self.get_direct_dependents(element)
-                if self.get_topo_index(dep) > index]
+            raise LookupError(f"Element '{element}' is not in system '{self}'")
+        if isinstance(element, AbstractFeature):
+            index = self.get_topo_index(element)
+            return [d for d in self.get_direct_dependents(element)
+                    if self.get_topo_index(d) > index]
+        raise TypeError(f"Unexpected element type: {type(element)}")
 
     def get_direct_dependents(self, feature: AbstractFeature) -> list[AbstractFeature]:
         """Finds the dependencies of the feature not accounting for topological order."""
