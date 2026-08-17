@@ -274,7 +274,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     """
     def __init__(self,
                  coordinate_system: CoordinateSystem,
-                 geometry: Iterable[AbstractGeometry | Sequence[AbstractGeometry, bool]]
+                 geometry: Iterable[AbstractGeometry | Sequence[tuple[AbstractGeometry, bool]]]
                                     | None=None,
                  constraints: Iterable[AbstractConstraint] | None=None, *,
                  feature: AbstractFeature | None=None, uid: str | UUID | None=None) -> None:
@@ -285,6 +285,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         if (error := coordinate_system.system) is not None:
             raise ValueError("Expected None for coordinate_system.system,"
                              f" got {error}")
+        self._coordinate_system = coordinate_system
         references = {ConstraintReference.CORE: self,
                       ConstraintReference.CS: coordinate_system}
         subreferences = [ConstraintReference.ORIGIN,
@@ -313,7 +314,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         self._construction = set()
 
         for value in geometry:
-            if isinstance(value, Sequence):
+            if isinstance(value, tuple):
                 geometry_element, construction = value
             else:
                 geometry_element = value
@@ -327,7 +328,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     @property
     def coordinate_system(self) -> CoordinateSystem:
         """The CoordinateSystem placing the system's geometry. Read-only."""
-        return self.get_reference(ConstraintReference.CS)
+        return self._coordinate_system
 
     @property
     def construction(self) -> list[bool]:
@@ -371,14 +372,14 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         self._constraints = SketchConstraintList(self, values)
 
     @property
-    def feature(self) -> AbstractFeature:
+    def feature(self) -> AbstractFeature | None:
         """The feature that owns this system."""
         return self._feature
 
     @feature.setter
-    def feature(self, value: AbstractFeature) -> None:
+    def feature(self, value: AbstractFeature | None) -> None:
         self._feature = value
-        for child in self.children:
+        for child in self.children.values():
             if child is self:
                 continue
             child.feature = value
