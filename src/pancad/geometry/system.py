@@ -217,25 +217,16 @@ class FeatureSystem(AbstractFeatureSystem):
         """Finds the dependencies of the feature not accounting for topological order."""
         if feature not in self:
             raise LookupError(f"Provided feature '{feature}' is not in system '{self}'")
-        dependents = set()
-
         # Get features constrained together with the feature.
-        for constraint in self.get_constraints_on(feature):
-            deps = constraint.get_dependencies()
-            dependents.update(dep for dep in deps if dep.uid != feature.uid)
-
+        dependents = {d for c in self.get_constraints_on(feature) for d in c.get_dependencies()
+                      if d != feature and isinstance(d, AbstractFeature)}
         # Check for features directly referencing the feature.
         for other in self.features:
-            if other.uid == feature.uid:
+            if other == feature:
                 continue
-            if any(dep.uid == feature.uid for dep in other.get_dependencies()):
+            if any(dep == feature for dep in other.get_dependencies()):
                 dependents.add(other)
         return list(dependents)
-
-    def get_topo_order(self) -> list[AbstractFeature]:
-        """Returns a non-unique topological ordering of the features."""
-        # dependency_graph = {feature.uid:
-        # sorter = graphlib.TopologicalSorter(
 
     def is_equal(self, other: FeatureSystem) -> bool:
         if not self.coordinate_system.is_equal(other.coordinate_system):
