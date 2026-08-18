@@ -274,8 +274,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     """
     def __init__(self,
                  coordinate_system: CoordinateSystem,
-                 geometry: Iterable[AbstractGeometry | Sequence[tuple[AbstractGeometry, bool]]]
-                                    | None=None,
+                 geometry: Iterable[AbstractGeometry | tuple[AbstractGeometry, bool]] | None=None,
                  constraints: Iterable[AbstractConstraint] | None=None, *,
                  feature: AbstractFeature | None=None, uid: str | UUID | None=None) -> None:
         # Initialize system and feature references first
@@ -301,9 +300,8 @@ class SketchGeometrySystem(AbstractGeometrySystem):
             )
         for sub in subreferences:
             references[sub] = coordinate_system.get_reference(sub)
-        super().__init__(references)
-        self.system = self # GeometrySystems are their own system
-        self.feature = feature
+        # GeometrySystems are their own system
+        super().__init__(references, system=self, feature=feature)
 
         # Add geometry and constraints to system
         if geometry is None:
@@ -515,7 +513,7 @@ class TwoDSketchSystem(SketchGeometrySystem):
     :param coordinate_system: Will be initialized at (0, 0) when None.
     """
     def __init__(self,
-                 geometry: Iterable[AbstractGeometry | Sequence[AbstractGeometry, bool]]
+                 geometry: Iterable[AbstractGeometry | tuple[AbstractGeometry, bool]]
                            | None=None,
                  constraints: Iterable[AbstractConstraint] | None=None, *,
                  feature: AbstractFeature | None=None,
@@ -537,8 +535,7 @@ class ThreeDSketchSystem(SketchGeometrySystem):
     :param coordinate_system: Will be initialized at (0, 0, 0) when None.
     """
     def __init__(self,
-                 geometry: Iterable[AbstractGeometry | Sequence[AbstractGeometry, bool]]
-                           | None=None,
+                 geometry: Iterable[AbstractGeometry | tuple[AbstractGeometry, bool]] | None=None,
                  constraints: Iterable[AbstractConstraint] | None=None, *,
                  feature: AbstractFeature | None=None,
                  uid: str | UUID | None=None,
