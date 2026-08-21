@@ -15,7 +15,8 @@ from pancad.constants import ConstraintReference as CR, SketchConstraint as SC
 from pancad.constraints._generator import make_constraint
 from pancad.geometry.line_segment import LineSegment
 from pancad.geometry.system import TwoDSketchSystem
-from pancad.geometry.sketch import Pose, Sketch
+from pancad.geometry.coordinate_system import Pose
+from pancad.geometry.sketch import Sketch
 from pancad.filetypes.part_file import PartFile
 from pancad.constraints.state_constraint import AlignAxes
 from pancad.constants import FeatureType as FT
@@ -23,13 +24,14 @@ from pancad.geometry.extrude import Extrude, ExtrudeSettings
 from pancad.utils import trigonometry as trig, quat
 
 from tests.testing_utils import sketch_gen
+from tests._typing import GeometrySpec, ConstraintSpec, FeatureSpec
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
 
     from pancad.utils.pancad_types import SpaceVector
-    from tests._typing import GeometrySampleData, SampleTestGroup, ChangeTestGroup
+    from tests._typing import GeometrySampleData, ChangeTest, TestGroup
 
 @cache
 def read_test_data_file(path: Path) -> dict[str, Any]:
@@ -141,6 +143,52 @@ def _read_geometry_data_entry(entry: dict[str, Any]) -> GeometrySampleData:
         return {"vectors": vectors, "scalars": scalars, "quats": quats}
     raise LookupError("No vectors, scalars, or quaternions found")
 
+def _read_geometry_spec(name: str, spec: dict[str, Any], type_: str | None=None) -> GeometrySpec:
+    # Reads a geometry's name and parameters from a data file's dictionary.
+    if not type_: # Data file specified or
+        type_ = spec["type"]
+    return GeometrySpec(name, type_, _read_geometry_data_entry(spec))
+
+def _read_constraint_spec(name: str, spec: dict[str, Any]) -> ConstraintSpec:
+    # Reads a constraint's name and parameters from a data file's dictionary.
+    geometry_refs: list[tuple[str, CR]] = []
+    for geometry in spec["geometry"]:
+        refs = tuple(str(r) for r in geometry.rsplit("::", 1))
+        try:
+            geometry_refs.append((refs[0], CR(refs[1])))
+        except IndexError as exc:
+            raise ValueError(f"No '::' found in {geometry}") from exc
+        except ValueError as exc:
+            raise ValueError(f"Unexpected ConstraintReference: {refs[1]}") from exc
+    params: GeometrySampleData | None
+    try:
+        params = _read_geometry_data_entry(spec)
+    except LookupError:
+        params = None # No vectors or scalars found, so this constraint doesn't need params.
+    return ConstraintSpec(str(name), SC(spec["type"]), tuple(geometry_refs), params)
+
+def _read_feature_spec(name: str, spec: dict[str, Any]) -> FeatureSpec:
+    geometry = tuple(_read_geometry_spec(n, s) for n, s in spec.get("geometry", {}).items())
+    constraints = tuple(_read_constraint_spec(n, s)
+                        for n, s in spec.get("constraints", {}).items())
+    pose: GeometrySpec | None = None
+    if "pose" in spec:
+        pose = _read_geometry_spec(f"{name}_pose", spec["pose"], "pose")
+    return FeatureSpec(str(name), str(spec["type"]),
+                       {"geometry": geometry, "constraints": constraints, "pose": pose})
+
+def read_feature_data(data: dict[str, Any], *keys: str) -> dict[tuple[str, ...], FeatureSpec]:
+    """Reads a nested dictionary of feature settings into a named tuple.
+
+    :raises LookupError: When one of the provided keys could not be found in the data
+    """
+    for key in keys:
+        try:
+            data = data[key]
+        except KeyError as exc:
+            raise LookupError(f"Could not find '{key}' in chain '{'.'.join(keys)}'") from exc
+    return {keys + (k,): _read_feature_spec(k, v) for k, v in data.items()}
+
 def read_geometry_data(data: dict[str, Any],
                         *keys: str) -> dict[tuple[str, ...], GeometrySampleData]:
     """Reads a nested dictionary of geometry into a dictionary of the nested keys mapped to the
@@ -161,7 +209,7 @@ def read_geometry_data(data: dict[str, Any],
         except LookupError:
             keyed_data ={k + (sk,): sv for k, v in keyed_data.items() for sk, sv in v.items()}
 
-def _make_geometry_sample_input(fixture_name: str) -> SampleTestGroup:
+def _make_geometry_sample_input(fixture_name: str) -> TestGroup[GeometrySampleData]:
     """Converts the raw data read from a fixture's sample data file into a list of test ids and a
     list of GeometrySampleData dictionaries.
     """
@@ -170,7 +218,7 @@ def _make_geometry_sample_input(fixture_name: str) -> SampleTestGroup:
     data = read_geometry_data(raw_data, *keys)
     return [".".join(id_) for id_ in data], list(data.values())
 
-def _make_geometry_change_input(fixture_name: str) -> ChangeTestGroup:
+def _make_geometry_change_input(fixture_name: str) -> TestGroup[ChangeTest]:
     """Converts the raw data read from a fixture's sample data file into a list of test ids and a
     list of GeometrySampleData dictionary pairs. The first of the pair is the starting geometry
     and the second specifies the change to perform on the starting geometry.
@@ -195,6 +243,15 @@ def _make_geometry_change_input(fixture_name: str) -> ChangeTestGroup:
         tests.extend(group_tests)
     return ids, tests
 
+def _make_feature_sample_input(fixture_name: str) -> TestGroup[FeatureSpec]:
+    """Converts raw data read from a fixture's 'feat_' file into a list of test ids and a list of
+    FeatureSpec pair.
+    """
+    raw_data = read_test_data_file(resolve_test_data_path(fixture_name))
+    keys = resolve_test_data_keys(fixture_name, raw_data)
+    data = read_feature_data(raw_data, *keys)
+    return [".".join(id_) for id_ in data], list(data.values())
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Generates tests from the names of the fixtures when the match patterns like data_ and
     changes_
@@ -208,6 +265,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     for change_fixture in [f for f in metafunc.fixturenames if f.startswith("changes_")]:
         ids, change_data = _make_geometry_change_input(change_fixture)
         metafunc.parametrize(change_fixture, change_data, ids=ids)
+
+    for feat_fixture in [f for f in metafunc.fixturenames if f.startswith("feat_")]:
+        ids, feat_data = _make_feature_sample_input(feat_fixture)
+        metafunc.parametrize(feat_fixture, feat_data, ids=ids)
 
 @pytest.fixture(name="min_squareable")
 def fixture_min_squareable() -> float:
