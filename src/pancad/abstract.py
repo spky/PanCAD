@@ -11,7 +11,7 @@ from pancad.constants import ConstraintReference
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import Self, Optional, Type, TypeVar, ClassVar
+    from typing import Self, Type, TypeVar, ClassVar
     from uuid import UUID
 
     T = TypeVar("T")
@@ -25,8 +25,7 @@ class PancadThing(ABC):
     """
     def __init__(self, system: AbstractGeometrySystem | None=None, name: str | None=None):
         self._system: AbstractGeometrySystem | None = None
-        if system:
-            self.system = system
+        self.system = system
         self._uid: UUID | str
         self.name = name
 
@@ -56,15 +55,16 @@ class PancadThing(ABC):
         mapping between CAD applications.
         """
         return self._uid
+
     @uid.setter
-    def uid(self, value: Optional[str | UUID]) -> None:
+    def uid(self, value: str | UUID | None) -> None:
         if value is None:
             self._uid = uuid4()
         else:
             self._uid = value
 
     @property
-    def system(self) -> Optional[AbstractGeometrySystem]:
+    def system(self) -> AbstractGeometrySystem | None:
         """The system that defines the object's location and dependencies. Some
         objects like files representing parts or assemblies can exist by
         themselves, which is indicated by those objects' system being None.
@@ -72,7 +72,7 @@ class PancadThing(ABC):
         return self._system
 
     @system.setter
-    def system(self, value: Optional[AbstractGeometrySystem]) -> None:
+    def system(self, value: AbstractGeometrySystem | None) -> None:
         self._system = value
 
     @abstractmethod
@@ -124,11 +124,10 @@ class AbstractGeometry(PancadThing):
     """A class defining interfaces common to all pancad Geometry Elements."""
     def __init__(self, references: dict[ConstraintReference, AbstractGeometry],
                  *,
-                 system: Optional[AbstractGeometrySystem]=None,
-                 feature: Optional[AbstractFeature]=None,
-                 name: str | None=None
-                 ) -> None:
-        self._feature: Optional[AbstractFeature] = None
+                 system: AbstractGeometrySystem | None=None,
+                 feature: AbstractFeature | None=None,
+                 name: str | None=None) -> None:
+        self._feature: AbstractFeature | None = None
         self._references = references
         super().__init__(system, name)
         if feature is not None:
@@ -138,30 +137,30 @@ class AbstractGeometry(PancadThing):
                 child.parent = self
 
     @property
-    def feature(self) -> Optional[AbstractFeature]:
+    def feature(self) -> AbstractFeature | None:
         """The feature that owns this geometry element."""
         return self._feature
 
     @feature.setter
-    def feature(self, value: Optional[AbstractFeature]) -> None:
+    def feature(self, value: AbstractFeature | None) -> None:
         self._feature = value
         for _, child in self.children.items():
             if child.uid != self.uid:
                 child.feature = value
 
     @property
-    def system(self) -> Optional[AbstractGeometrySystem]:
+    def system(self) -> AbstractGeometrySystem | None:
         return self._system
 
     @system.setter
-    def system(self, value: Optional[AbstractGeometrySystem]) -> None:
+    def system(self, value: AbstractGeometrySystem | None) -> None:
         self._system = value
         for _, child in self.children.items():
             if child.uid != self.uid:
                 child.system = value
 
     @property
-    def parent(self) -> Optional[AbstractGeometry]:
+    def parent(self) -> AbstractGeometry | None:
         """The parent of the geometry.
 
         Example: A circle center point's parent would be the circle, but if the
@@ -281,29 +280,28 @@ class AbstractFeatureSystem(AbstractGeometrySystem):
         """
 
 class AbstractConstraint(PancadThing):
-    """A class defining the interfaces provided by all pancad Constraint
-    Elements.
+    """A class defining the interfaces provided by all pancad Constraint Elements.
     """
 
     type_name: ClassVar[SketchConstraint]
     """The SketchConstraint enum value for the constraint type."""
 
     def __init__(self,
-                 system: Optional[AbstractGeometrySystem]=None,
+                 system: AbstractGeometrySystem | None=None,
                  name: str | None=None) -> None:
         super().__init__(system, name)
-        self._feature: Optional[AbstractFeature] = None
+        self._feature: AbstractFeature | None = None
         if self.system and self.system.feature:
             self.feature = self.system.feature
 
     # Properties
     @property
-    def feature(self) -> Optional[AbstractFeature]:
+    def feature(self) -> AbstractFeature | None:
         """The feature that owns this constraint."""
         return self._feature
 
     @feature.setter
-    def feature(self, value: Optional[AbstractFeature]) -> None:
+    def feature(self, value: AbstractFeature | None) -> None:
         self._feature = value
 
     @property
@@ -320,12 +318,11 @@ class AbstractConstraint(PancadThing):
         return self.__pairs
 
     @_pairs.setter
-    def _pairs(self, value: list[tuple[AbstractGeometry,
-                                       ConstraintReference]]) -> None:
+    def _pairs(self, value: list[tuple[AbstractGeometry, ConstraintReference]]) -> None:
         self.__pairs = value
 
     @property
-    def system(self) -> Optional[AbstractGeometrySystem]:
+    def system(self) -> AbstractGeometrySystem | None:
         """The system the constraint is in. This defaults to None unless set by
         a higher level context like a SketchGeometrySystem object.
         """
@@ -334,7 +331,7 @@ class AbstractConstraint(PancadThing):
         return self._system
 
     @system.setter
-    def system(self, value: Optional[AbstractGeometrySystem]) -> None:
+    def system(self, value: AbstractGeometrySystem | None) -> None:
         self._system = value
 
     # Public Methods
