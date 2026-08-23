@@ -175,12 +175,11 @@ class FeatureSystem(AbstractFeatureSystem):
                        if isinstance(f, AbstractFeature))
         return self.features.index(value)
 
-    def get_constraints_on(self, value: AbstractFeature) -> list[AbstractConstraint]:
-        """Returns the constraints applied to the value inside the system."""
+    def get_constraints_on(self, element: PancadThing) -> list[AbstractConstraint]:
         constraints = []
         for constraint in self.constraints:
             deps = constraint.get_dependencies()
-            if any(dep.uid == value.uid for dep in deps):
+            if any(dep == element for dep in deps):
                 constraints.append(constraint)
         return constraints
 
@@ -435,12 +434,10 @@ class SketchGeometrySystem(AbstractGeometrySystem):
                 dependents.append(constraint)
         return dependents
 
-    def get_constraints_on(self, geometry: AbstractGeometry) -> list[AbstractConstraint]:
-        """Returns the sketch constraints that are applied to the geometry."""
+    def get_constraints_on(self, element: PancadThing) -> list[AbstractConstraint]:
         constraints = []
         for constraint in self.constraints:
-            if any(constrained.uid == geometry.uid
-                   for constrained in constraint.get_parents()):
+            if any(constrained == element for constrained in constraint.get_parents()):
                 constraints.append(constraint)
         return constraints
 

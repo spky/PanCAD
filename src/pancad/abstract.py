@@ -257,6 +257,10 @@ class AbstractGeometrySystem(AbstractGeometry):
         """The constraints on the elements inside the system's context."""
 
     @abstractmethod
+    def get_constraints_on(self, element: PancadThing) -> list[AbstractConstraint]:
+        """Returns the constraints applied to the element inside the system."""
+
+    @abstractmethod
     def __contains__(self, item: object) -> bool:
         """Checks whether the item is inside the geometry system."""
 
