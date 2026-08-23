@@ -71,9 +71,7 @@ class Sketch(AbstractFeature):
 
     @property
     def feature_geometry(self) -> FeatureGeometryList:
-        """The geometry directly owned by this Sketch. Usually its Pose and
-        GeometrySystem.
-        """
+        """The geometry directly owned by this Sketch. Usually its Pose and GeometrySystem."""
         return self._feature_geometry
 
     @property
@@ -95,19 +93,17 @@ class Sketch(AbstractFeature):
 
         :raises ValueError: When the sketch is not supported or not in a system.
         """
-        sys = self.system
-        index = sys.get_topo_index(self)
-        # Constraints placing the feature should have the same topological index
-        # as the feature.
-        constraints = [c for c in self.system.get_constraints_on(self)
-                       if sys.get_topo_index(c) == index]
-        # Check whether it's possible to get the support
         if not self.system:
             raise ValueError(f"Sketch '{self.name}' is not in a system")
+        index = self.system.get_topo_index(self)
+        # Constraints placing the feature should have the same topological index as the feature.
+        constraints = [c for c in self.system.get_constraints_on(self)
+                       if self.system.get_topo_index(c) == index]
+        # Check whether it's possible to get the support
         if not constraints:
-            sys_feat = self.system.feature
-            msg = (f"Sketch '{self.name}' is not supported in system in feature"
-                   f" '{sys_feat.name}'")
+            msg = f"Sketch '{self.name}' is not supported"
+            if self.system.feature:
+                msg = msg + f" inside feature '{self.system.feature.name}'"
             raise ValueError(msg)
 
         if len(constraints) != 1:
@@ -115,11 +111,15 @@ class Sketch(AbstractFeature):
                                       f" not yet supported: {constraints}")
         constraint = constraints[0]
         if constraint.type_name == SketchConstraint.ALIGN_AXES:
-            feat = next(f for f in constraint.get_dependencies()
-                        if f is not self)
+            # AlignAxes is the only constraint type supported right now.
+            try:
+                feat = next(f for f in constraint.get_dependencies()
+                            if f != self and isinstance(f, AbstractFeature))
+            except StopIteration as exc:
+                deps = constraint.get_dependencies()
+                raise ValueError(f"No Feature to act as support in: {deps}") from exc
             return feat.feature_system.coordinate_system.xy_plane
-        raise ValueError("Unsupported constraint type for placing sketches:"
-                         f" {constraint}")
+        raise ValueError(f"Unsupported constraint type for placing sketches: {constraint}")
 
     def is_equal(self, other: Sketch) -> bool:
         return (self.pose.is_equal(other.pose)

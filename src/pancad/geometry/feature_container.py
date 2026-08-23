@@ -57,9 +57,7 @@ class FeatureContainer(AbstractFeature):
 
     @property
     def feature_geometry(self) -> FeatureGeometryList:
-        """The geometry directly owned by this container. Usually its Pose and 
-        FeatureSystem.
-        """
+        """The geometry directly owned by this container. Usually its Pose and FeatureSystem."""
         return self._feature_geometry
 
     @property

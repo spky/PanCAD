@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
     from pancad.constants import SketchConstraint
+    from pancad.geometry.unique_lists import FeatureGeometryList
 
 
 class PancadThing(ABC):
@@ -111,6 +112,11 @@ class AbstractFeature(PancadThing):
         if isinstance(self.system, AbstractFeatureSystem):
             dependencies.update(self.system.get_topo_dependencies(self))
         return list(dependencies)
+
+    @property
+    @abstractmethod
+    def feature_geometry(self) -> FeatureGeometryList:
+        """The geometry directly owned by this feature."""
 
     @abstractmethod
     def is_equal(self: T, other: T) -> bool:
