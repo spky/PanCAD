@@ -12,7 +12,7 @@ from pancad.abstract import AbstractFeature
 from pancad.constants import SketchConstraint
 from pancad.geometry.coordinate_system import Pose
 from pancad.geometry.unique_lists import FeatureGeometryList
-from pancad.geometry.system import TwoDSketchSystem
+from pancad.geometry.system import TwoDSketchSystem, FeatureSystem
 from pancad.utils.initialize import get_pancad_config
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from typing import Self
 
     from pancad.abstract import (
-        AbstractConstraint, PancadThing, AbstractFeatureSystem
+        AbstractGeometry, AbstractConstraint, PancadThing, AbstractFeatureSystem
     )
     from pancad.geometry.line import Line
     from pancad.geometry.plane import Plane
@@ -88,7 +88,7 @@ class Sketch(AbstractFeature):
         )
         return list(dependencies)
 
-    def get_support(self) -> AbstractFeature:
+    def get_support(self) -> AbstractFeature | AbstractGeometry:
         """Returns the features supporting the sketch in space.
 
         :raises ValueError: When the sketch is not supported or not in a system.
@@ -111,14 +111,22 @@ class Sketch(AbstractFeature):
                                       f" not yet supported: {constraints}")
         constraint = constraints[0]
         if constraint.type_name == SketchConstraint.ALIGN_AXES:
-            # AlignAxes is the only constraint type supported right now.
+            # Satisfying a Sketch's AlignAxes constraint is performed by finding the first
+            # FeatureSystem inside a constraint's first Feature dependency. Ex: The FeatureSystem
+            # of a FeatureContainer is a common one.
             try:
-                feat = next(f for f in constraint.get_dependencies()
-                            if f != self and isinstance(f, AbstractFeature))
+                feature = next(f for f in constraint.get_dependencies()
+                               if f != self and isinstance(f, AbstractFeature))
             except StopIteration as exc:
                 deps = constraint.get_dependencies()
                 raise ValueError(f"No Feature to act as support in: {deps}") from exc
-            return feat.feature_system.coordinate_system.xy_plane
+            try:
+                support_system = next(g for g in feature.feature_geometry
+                                      if isinstance(g, FeatureSystem))
+            except StopIteration as exc:
+                raise ValueError(f"Support {feature} does not have a system to align to") from exc
+            # The xy plane is assumed
+            return support_system.coordinate_system.xy_plane
         raise ValueError(f"Unsupported constraint type for placing sketches: {constraint}")
 
     def is_equal(self, other: Sketch) -> bool:
