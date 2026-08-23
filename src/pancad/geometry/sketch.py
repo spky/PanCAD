@@ -82,7 +82,7 @@ class Sketch(AbstractFeature):
         return self._geometry_system
 
     # Public Functions #
-    def get_dependencies(self) -> tuple[AbstractFeature]:
+    def get_dependencies(self) -> list[PancadThing]:
         dependencies = set(super().get_dependencies())
         dependencies.update(
             {dep for dep in self.geometry_system.get_dependencies()

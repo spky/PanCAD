@@ -113,7 +113,7 @@ class AbstractFeature(PancadThing):
         return list(dependencies)
 
     @abstractmethod
-    def is_equal(self, other: AbstractFeature) -> bool:
+    def is_equal(self: T, other: T) -> bool:
         """Returns whether the other feature is geometrically equal. This is a
         separate check from whether a feature element is 'python equal' to this
         feature element since the uids would not be the same.
