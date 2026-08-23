@@ -44,11 +44,10 @@ class Sketch(AbstractFeature):
         application requires a human-readable name for the sketch element.
     :param uid: The unique id of the Sketch. Defaults to None.
     """
-    def __init__(self, geometry_system: TwoDSketchSystem=None, pose: Pose=None,
-                 *,
-                 system: AbstractFeatureSystem=None,
+    def __init__(self, geometry_system: TwoDSketchSystem | None=None, pose: Pose | None=None, *,
+                 system: AbstractFeatureSystem | None=None,
                  name: str=DEFAULT_NAME,
-                 uid: str=None):
+                 uid: str | UUID | None=None):
         super().__init__(system, name)
         self.uid = uid
         if pose is None:
