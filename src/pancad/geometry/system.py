@@ -150,6 +150,13 @@ class FeatureSystem(AbstractFeatureSystem):
             constraint.feature = value
 
     #Public Methods
+    def find(self, name: str) -> PancadThing:
+        if feature := next((f for f in self.features if f.name == name), None):
+            return feature
+        if constraint := next((c for c in self.constraints if c.name == name), None):
+            return constraint
+        raise LookupError(f"No element named {name} found in {self}")
+
     def get_dependencies(self) -> list[PancadThing]:
         dependencies = set()
         for feature in self.features:
@@ -401,6 +408,13 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         return self.coordinate_system.y_axis
 
     # Public Methods
+    def find(self, name: str) -> PancadThing:
+        if geometry := next((g for g in self.geometry if g.name == name), None):
+            return geometry
+        if constraint := next((c for c in self.constraints if c.name == name), None):
+            return constraint
+        raise LookupError(f"No element named {name} found in {self}")
+
     def get_dependencies(self) -> list[PancadThing]:
         """Gets all the features this system depends on."""
         dependencies = set()

@@ -263,6 +263,13 @@ class AbstractGeometrySystem(AbstractGeometry):
         """The constraints on the elements inside the system's context."""
 
     @abstractmethod
+    def find(self, name: str) -> PancadThing:
+        """Returns an element in the system with the name.
+
+        :raises LookupError: When no element with the name is in the system.
+        """
+
+    @abstractmethod
     def get_constraints_on(self, element: PancadThing) -> list[AbstractConstraint]:
         """Returns the constraints applied to the element inside the system."""
 
