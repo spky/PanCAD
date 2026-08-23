@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pancad.abstract import AbstractFeature
+from pancad.abstract import AbstractFeature, AbstractFeatureSystem
 from pancad.constants import SketchConstraint
 from pancad.geometry.coordinate_system import Pose
 from pancad.geometry.unique_lists import FeatureGeometryList
@@ -21,9 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Self
 
-    from pancad.abstract import (
-        AbstractGeometry, AbstractConstraint, PancadThing, AbstractFeatureSystem
-    )
+    from pancad.abstract import AbstractGeometry, AbstractConstraint, PancadThing
     from pancad.geometry.line import Line
     from pancad.geometry.plane import Plane
     from pancad.geometry.point import Point
@@ -95,6 +93,8 @@ class Sketch(AbstractFeature):
         """
         if not self.system:
             raise ValueError(f"Sketch '{self.name}' is not in a system")
+        if not isinstance(self.system, AbstractFeatureSystem):
+            raise NotImplementedError("Finding support inside a non-FeatureSystem is unsupported")
         index = self.system.get_topo_index(self)
         # Constraints placing the feature should have the same topological index as the feature.
         constraints = [c for c in self.system.get_constraints_on(self)
