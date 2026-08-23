@@ -44,7 +44,8 @@ class Line(AbstractGeometry):
     """Any Line direction vector component smaller than this number will be set to 0."""
 
     def __init__(self, point: Point, direction: Sequence[float] | Numpy1D | Numpy2D,
-                 uid: Optional[str]=None) -> None:
+                 uid: Optional[str]=None,
+                 name: str | None=None) -> None:
         self.uid = uid
         self._point_closest_to_origin = Point([0] * len(point)) # Initialize closest point
         self.direction = direction
@@ -54,14 +55,15 @@ class Line(AbstractGeometry):
             raise ValueError(msg)
         self._point_closest_to_origin = Line._closest_to_origin(point.cartesian,
                                                                 self.direction)
-        super().__init__({ConstraintReference.CORE: self})
+        super().__init__({ConstraintReference.CORE: self}, name=name)
 
     # Class Methods
     @classmethod
     def from_two_points(cls,
                         a: Point | Sequence[float] | Numpy1D,
                         b: Point | Sequence[float] | Numpy1D,
-                        uid: Optional[str]=None) -> Self:
+                        uid: Optional[str]=None,
+                        name: str | None=None) -> Self:
         """Returns a Line instance defined by points a and b. 2D points will
         produce 2D lines, 3D produce 3D lines, and 2D and 3D points cannot
         be mixed.
@@ -77,13 +79,14 @@ class Line(AbstractGeometry):
             b = Point(b)
         if a.is_equal(b):
             raise ValueError("Defining points are at the same position")
-        return cls(a, b - a, uid)
+        return cls(a, b - a, uid, name=name)
 
     @classmethod
     def from_slope_and_y_intercept(cls,
                                    slope: float,
                                    intercept: float,
-                                   uid: Optional[str]=None) -> Self:
+                                   uid: Optional[str]=None,
+                                   name: str | None=None) -> Self:
         """Returns a 2D line described by y = mx + b.
 
         :param slope: The slope (m) of the line.
@@ -95,14 +98,15 @@ class Line(AbstractGeometry):
             points = (Point(0, intercept), Point(1, intercept))
         else:
             points = (Point(0, intercept), Point(1, slope + intercept))
-        return cls.from_two_points(*points, uid)
+        return cls.from_two_points(*points, uid, name=name)
 
     @classmethod
     def from_point_and_angle(cls,
                              point: Point | Sequence[float] | Numpy1D,
                              phi: float,
                              theta: Optional[float]=None,
-                             uid: Optional[str]=None) -> Self:
+                             uid: Optional[str]=None,
+                             name: str | None=None) -> Self:
         """Return a line from a given point and phi or phi and theta. The Line
         will be 2D if point is 2D. The Line will be 3D if point is 3D, phi
         is provided, and theta is provided.
@@ -126,27 +130,29 @@ class Line(AbstractGeometry):
             if theta is None:
                 raise ValueError("Expected theta for a 3D point.")
             direction_end_pt.spherical = (1, phi, theta)
-        return cls(point, tuple(direction_end_pt), uid)
+        return cls(point, tuple(direction_end_pt), uid, name=name)
 
     @classmethod
-    def from_x_intercept(cls, x_intercept: float, uid: Optional[str]=None) -> Self:
+    def from_x_intercept(cls, x_intercept: float, uid: Optional[str]=None,
+                         name: str | None=None) -> Self:
         """Returns a 2D vertical line that passes through the x intercept.
 
         :param x_intercept: The value of x where the line crosses the x-axis.
         :param uid: The unique ID of the line.
         :returns: A vertical line coincident with (x_intercept, 0).
         """
-        return cls(Point(x_intercept, 0), (0, 1), uid)
+        return cls(Point(x_intercept, 0), (0, 1), uid, name=name)
 
     @classmethod
-    def from_y_intercept(cls, y_intercept: float, uid: Optional[str]=None) -> Self:
+    def from_y_intercept(cls, y_intercept: float, uid: Optional[str]=None,
+                         name: str | None=None) -> Self:
         """Returns a 2D horizontal line that passes through the y intercept.
 
         :param y_intercept: The value of y where the line crosses the y-axis.
         :param uid: The unique ID of the line.
         :returns: A horizontal line coincident with (0, y_intercept).
         """
-        return cls(Point(0, y_intercept), (1, 0), uid)
+        return cls(Point(0, y_intercept), (1, 0), uid, name=name)
 
     # Properties
     @property
