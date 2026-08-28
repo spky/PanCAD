@@ -485,6 +485,8 @@ class SketchGeometrySystem(AbstractGeometrySystem):
 
         :param type_: The SketchConstraint enumeration value for the constraint to be created.
         :param geometry: The geometry or the names
+        :raises TypeError: When provided a geometry name that is referring to another element type
+        :raises LookupError: When a geometry name cannot be found in the system.
         :returns: The new constraint.
         """
         constrained: list[AbstractGeometry] = []
@@ -493,7 +495,10 @@ class SketchGeometrySystem(AbstractGeometrySystem):
                 parent_name, ref = parse_geometry_qual_name(geo)
                 element = self.find(parent_name)
                 if not isinstance(element, AbstractGeometry):
-                    raise TypeError(f"Expected Geometry named '{parent_name}', found {element}")
+                    if element:
+                        msg = f"No parent geometry named '{parent_name}', found: {element}"
+                        raise TypeError(msg)
+                    raise LookupError(f"System does not have an element named '{parent_name}'")
                 geo = element.get_reference(ref)
             if geo in self:
                 constrained.append(geo)
