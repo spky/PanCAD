@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from pancad.constants import ConstraintReference
+from pancad.utils.geometry import parse_geometry_qual_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -100,7 +101,6 @@ class AbstractFeature(PancadThing):
     def __init__(self, system: AbstractGeometrySystem | None=None, name: str="") -> None:
         super().__init__(system, name)
 
-    # Properties #
     def get_dependencies(self) -> list[PancadThing]:
         """Returns the feature's external feature dependencies."""
         if self.system is None:
@@ -112,6 +112,16 @@ class AbstractFeature(PancadThing):
         if isinstance(self.system, AbstractFeatureSystem):
             dependencies.update(self.system.get_topo_dependencies(self))
         return list(dependencies)
+
+    def find(self, name: str) -> PancadThing | None:
+        # names have the format of 'geometry_name' or 'geometry_name::reference_name' except for
+        # features containing other levels of features/geometry with possible added constraints.
+        for geometry in self.feature_geometry:
+            if name == geometry.name:
+                return geometry
+            if name.split("::", 1)[0] == geometry.name:
+                return geometry.find(name.removeprefix(f"{geometry.name}::"))
+        return None # No geometry matching the name was found
 
     @property
     @abstractmethod
@@ -212,6 +222,14 @@ class AbstractGeometry(PancadThing):
             dependencies.append(self.feature)
         return dependencies
 
+    def find(self, name: str) -> PancadThing | None:
+        # names have the format of 'geometry_name' or 'geometry_name::reference_name' except for
+        # geometry containing other levels of geometry with possible added constraints.
+        try: # Check children names first, will also return the geometry itself if name matches.
+            return next(g for g in self.children.values() if g.name == name)
+        except StopIteration: # Check references since none of the children names matched.
+            return next((g for r, g in self.children.items() if r == name), None)
+
     def get_reference(self, reference: ConstraintReference) -> AbstractGeometry:
         """Returns the subgeometry associated with the reference."""
         return self._references[reference]
@@ -262,12 +280,25 @@ class AbstractGeometrySystem(AbstractGeometry):
     def constraints(self) -> Sequence[AbstractConstraint]:
         """The constraints on the elements inside the system's context."""
 
+    @property
     @abstractmethod
-    def find(self, name: str) -> PancadThing:
-        """Returns an element in the system with the name.
+    def elements(self) -> Sequence[AbstractGeometry | AbstractFeature]:
+        """The elements in the system that are capable of being constrained."""
 
-        :raises LookupError: When no element with the name is in the system.
-        """
+    def find(self, name: str) -> PancadThing | None:
+        """Returns an element in the system with the name."""
+        result: PancadThing | None
+        if result := super().find(name): # Check the system itself first.
+            return result
+        for element in self.elements:
+            if element.name == name:
+                return element
+            if name.split("::", 1)[0] == element.name: # Check if the name is a nested reference
+                return element.find(name.removeprefix(f"{element.name}::"))
+        for constraint in self.constraints:
+            if constraint.name == name:
+                return constraint
+        return None # No match found
 
     @abstractmethod
     def get_constraints_on(self, element: PancadThing) -> list[AbstractConstraint]:

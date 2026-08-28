@@ -8,7 +8,7 @@ from pancad.abstract import (
     AbstractGeometrySystem, AbstractFeatureSystem, PancadThing,
     AbstractGeometry, AbstractConstraint, AbstractFeature
 )
-from pancad.constants import ConstraintReference
+from pancad.constants import ConstraintReference, SketchConstraint
 from pancad.exceptions import SketchGeometryHasConstraintsError
 from pancad.geometry.coordinate_system import CoordinateSystem
 from pancad.geometry.unique_lists import (
@@ -17,6 +17,8 @@ from pancad.geometry.unique_lists import (
     SystemFeatureList,
     FeatureConstraintList,
 )
+from pancad.constraints._generator import make_constraint
+from pancad.utils.geometry import parse_geometry_qual_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -135,6 +137,10 @@ class FeatureSystem(AbstractFeatureSystem):
         raise NotImplementedError(msg)
 
     @property
+    def elements(self) -> tuple[AbstractFeature, ...]:
+        return tuple(self._features)
+
+    @property
     def feature(self) -> AbstractFeature | None:
         """The feature that owns this system."""
         return self._feature
@@ -150,13 +156,6 @@ class FeatureSystem(AbstractFeatureSystem):
             constraint.feature = value
 
     #Public Methods
-    def find(self, name: str) -> PancadThing:
-        if feature := next((f for f in self.features if f.name == name), None):
-            return feature
-        if constraint := next((c for c in self.constraints if c.name == name), None):
-            return constraint
-        raise LookupError(f"No element named {name} found in {self}")
-
     def get_dependencies(self) -> list[PancadThing]:
         dependencies = set()
         for feature in self.features:
@@ -347,6 +346,10 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         return [g.uid in self._construction for g in self.geometry]
 
     @property
+    def elements(self) -> tuple[AbstractGeometry, ...]:
+        return tuple(self._geometry)
+
+    @property
     def geometry(self) -> SketchGeometryList:
         """All geometry internal to the system."""
         return self._geometry
@@ -408,13 +411,6 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         return self.coordinate_system.y_axis
 
     # Public Methods
-    def find(self, name: str) -> PancadThing:
-        if geometry := next((g for g in self.geometry if g.name == name), None):
-            return geometry
-        if constraint := next((c for c in self.constraints if c.name == name), None):
-            return constraint
-        raise LookupError(f"No element named {name} found in {self}")
-
     def get_dependencies(self) -> list[PancadThing]:
         """Gets all the features this system depends on."""
         dependencies = set()
@@ -476,6 +472,38 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         missing = [geometry for geometry in constraint.get_parents()
                    if geometry not in self]
         raise LookupError(f"{repr(constraint)} dependencies missing: {missing}")
+
+    def constrain(self,
+                  type_: SketchConstraint | str,
+                  *geometry: AbstractGeometry | str,
+                  value: float | None=None,
+                  unit: str | None=None,
+                  quadrant: int | None=None,
+                  is_radians: bool | None=None,
+                  name: str | None=None) -> AbstractConstraint:
+        """Constrains geometry in the system using either direct geometry elements or their names.
+
+        :param type_: The SketchConstraint enumeration value for the constraint to be created.
+        :param geometry: The geometry or the names
+        :returns: The new constraint.
+        """
+        constrained: list[AbstractGeometry] = []
+        for geo in geometry:
+            if isinstance(geo, str):
+                parent_name, ref = parse_geometry_qual_name(geo)
+                element = self.find(parent_name)
+                if not isinstance(element, AbstractGeometry):
+                    raise TypeError(f"Expected Geometry named '{parent_name}', found {element}")
+                geo = element.get_reference(ref)
+            if geo in self:
+                constrained.append(geo)
+            else:
+                raise LookupError(f"Geometry {geo} is not in the system")
+        constraint = make_constraint(type_, *constrained, name=name,
+                                     value=value, unit=unit,
+                                     quadrant=quadrant, is_radians=is_radians)
+        self.constraints.append(constraint)
+        return constraint
 
     def get_construction_geometry(self) -> list[AbstractGeometry]:
         """Returns the system's construction geometry."""
