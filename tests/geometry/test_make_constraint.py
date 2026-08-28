@@ -104,6 +104,4 @@ class TestValueErrors:
                    line_2d_duo: tuple[Line, Line]) -> None:
         """Test that not providing a value or a quadrant and angle constraint raises an error."""
         with pytest.raises(ValueError, match=f"'{err_names}' was not provided"):
-            # Testing ValueError that may occur to people not using static type checking, so mypy
-            # is ignored here.
-            make_constraint("angle", *line_2d_duo, value=value, quadrant=quadrant) # type: ignore
+            make_constraint("angle", *line_2d_duo, value=value, quadrant=quadrant)
