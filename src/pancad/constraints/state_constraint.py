@@ -26,9 +26,10 @@ class AbstractStateConstraint(AbstractConstraint):
     :param uid: The unique id of the constraint.
     """
     def __init__(self, *geometry: AbstractGeometry,
-                 uid: UUID | str | None=None, system: AbstractGeometrySystem | None=None) -> None:
+                 uid: UUID | str | None=None, system: AbstractGeometrySystem | None=None,
+                 name: str | None=None) -> None:
         self.uid = uid
-        super().__init__(system)
+        super().__init__(system, name=name)
         if len(geometry) != 2:
             raise ValueError(f"Expected 2 geometries, provided {geometry}")
         self._geometry = geometry
