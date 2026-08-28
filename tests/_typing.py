@@ -37,6 +37,7 @@ class GeometrySpec(NamedTuple):
     """A NamedTuple with enough information to create a pancad geometry element for a test."""
     name: str
     type_: str
+    construction: bool
     params: GeometrySampleData
 
 class ConstraintSpec(NamedTuple):

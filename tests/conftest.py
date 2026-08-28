@@ -147,7 +147,8 @@ def _read_geometry_spec(name: str, spec: dict[str, Any], type_: str | None=None)
     # Reads a geometry's name and parameters from a data file's dictionary.
     if not type_: # Data file specified or
         type_ = spec["type"]
-    return GeometrySpec(name, type_, _read_geometry_data_entry(spec))
+    return GeometrySpec(name, type_, spec.get("construction", False),
+                        _read_geometry_data_entry(spec))
 
 def _read_constraint_spec(name: str, spec: dict[str, Any]) -> ConstraintSpec:
     # Reads a constraint's name and parameters from a data file's dictionary.
