@@ -272,7 +272,7 @@ class Pose(AbstractGeometry):
 
     @classmethod
     def from_rotation(cls, origin: Collection[float], rotation: Numpy2D | Quat | None=None,
-                      *, uid: UUID | str | None=None) -> Self:
+                      *, uid: UUID | str | None=None, name: str | None=None) -> Self:
         """Initializes a Pose using the origin point and a rotation around that point.
 
         :param origin: A 3D center Point of the Pose's coordinate system.
@@ -280,7 +280,7 @@ class Pose(AbstractGeometry):
             CoordinateSystem to an orientation. Leaves the canonical system unrotated when None.
         :param uid: The unique ID of the Pose.
         """
-        return cls(CoordinateSystem(origin, rotation), uid=uid)
+        return cls(CoordinateSystem(origin, rotation), uid=uid, name=name)
 
     @property
     def coordinate_system(self) -> CoordinateSystem:
