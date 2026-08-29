@@ -111,7 +111,8 @@ def parse_geometry_qual_name(qual_name: str,
         ref = ConstraintReference(last)
     except ValueError as exc:
         if not allow_nested:
-            raise ValueError(f"Invalid ConstraintReference at end of qualified name: {qual_name}")
+            msg = f"Invalid ConstraintReference at end of qualified name: {qual_name}"
+            raise ValueError(msg) from exc
         name = f"{name}::{last}"
         ref = ConstraintReference.CORE
     return name, ref
