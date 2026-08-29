@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from pancad.constants import ConstraintReference
-from pancad.utils.geometry import parse_geometry_qual_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -115,6 +114,10 @@ class AbstractFeature(PancadThing):
         return list(dependencies)
 
     def find(self, name: str) -> PancadThing | None:
+        """Returns a PancadThing inside this feature using a name or a qualified name.
+
+        :returns: The named element or None if no element is found.
+        """
         # names have the format of 'geometry_name' or 'geometry_name::reference_name' except for
         # features containing other levels of features/geometry with possible added constraints.
         for geometry in self.feature_geometry:
@@ -224,6 +227,10 @@ class AbstractGeometry(PancadThing):
         return dependencies
 
     def find(self, name: str) -> PancadThing | None:
+        """Returns a PancadThing inside this geometry using a name or a qualified name.
+
+        :returns: The named element or None if no element is found.
+        """
         # names have the format of 'geometry_name' or 'geometry_name::reference_name' except for
         # geometry containing other levels of geometry with possible added constraints.
         try: # Check children names first, will also return the geometry itself if name matches.
