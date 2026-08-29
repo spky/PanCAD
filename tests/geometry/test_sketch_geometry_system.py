@@ -3,8 +3,9 @@ initialized and handle errors.
 """
 from __future__ import annotations
 
-import pytest
 from typing import TYPE_CHECKING
+
+import pytest
 
 from pancad.constants import ConstraintReference
 from pancad.geometry.point import Point
@@ -93,7 +94,7 @@ def fixture_empty_system() -> TwoDSketchSystem:
     return TwoDSketchSystem()
 
 @pytest.fixture(name="single_point")
-def single_point() -> Point:
+def fixture_single_point() -> Point:
     return Point(0, 0)
 
 @pytest.fixture(name="empty_geometry_list")
@@ -144,8 +145,9 @@ def fixture_system_just_geometry(empty_system: TwoDSketchSystem,
     return empty_system
 
 @pytest.fixture(name="system_with_constraints")
-def system_with_constraints(system_just_geometry: TwoDSketchSystem,
-                            geometry_and_constraint_sequences: SequencePair) -> TwoDSketchSystem:
+def fixture_system_with_constraints(system_just_geometry: TwoDSketchSystem,
+                                    geometry_and_constraint_sequences: SequencePair
+                                    ) -> TwoDSketchSystem:
     """Systems where all geometry in the list has at least one constraint on it.
     """
     _, constraints = geometry_and_constraint_sequences
@@ -174,8 +176,7 @@ def test_delete_geometry_in_empty(empty_geometry_list: SketchGeometryList,
     assert len(empty_geometry_list) == 0
 
 def test_geometry_list_index(multiple_geometry_list: SketchGeometryList) -> None:
-    for i in range(len(multiple_geometry_list)):
-        geometry = multiple_geometry_list[i]
+    for i, geometry in enumerate(multiple_geometry_list):
         assert multiple_geometry_list.index(geometry) == i
 
 def test_assign_system(system_just_geometry: TwoDSketchSystem) -> None:
