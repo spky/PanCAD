@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from pancad.abstract import AbstractFeature, AbstractGeometry
+    from pancad.utils.pancad_types import ConstraintKwargs
     from tests._typing import GeometrySpec, FeatureSpec
 
 def make_feature(spec: FeatureSpec) -> AbstractFeature:
@@ -32,7 +33,11 @@ def _sketch(spec: FeatureSpec) -> Sketch:
         feature.geometry_system.add_geometry(make_geometry(geometry), geometry.construction)
     for constraint in spec.params["constraints"]:
         refs = [f"{n}::{r}" for n, r in constraint.refs]
-        feature.geometry_system.constrain(constraint.type_, *refs, name=constraint.name)
+        kwargs: ConstraintKwargs = {"unit": constraint.unit, "quadrant": constraint.quadrant,
+                                    "is_radians": constraint.is_radians}
+        if constraint.params:
+            kwargs["value"] = constraint.params["scalars"].get("value")
+        feature.geometry_system.constrain(constraint.type_, *refs, name=constraint.name, **kwargs)
     return feature
 
 # Geometry Factories #############################################################################

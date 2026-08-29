@@ -67,6 +67,7 @@ class TestSketchElementFinding:
         """
         for geometry in sketch.geometry_system.geometry:
             assert geometry.name is not None
+            print(geometry)
             assert geometry == sketch.geometry_system.find(geometry.name)
         for constraint in sketch.geometry_system.constraints:
             assert constraint.name is not None

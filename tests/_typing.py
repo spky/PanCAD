@@ -46,6 +46,9 @@ class ConstraintSpec(NamedTuple):
     type_: SketchConstraint
     refs: tuple[tuple[str, ConstraintReference], ...]
     params: GeometrySampleData | None
+    unit: str | None = None
+    quadrant: int | None = None
+    is_radians: bool | None = None
 
 class FeatureSpec(NamedTuple):
     """A NamedTuple with enough information to create a pancad feature element for a test."""
