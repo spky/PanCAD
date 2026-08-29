@@ -40,6 +40,8 @@ _NON_VALUE_CONSTRAINT_MAP = {
     if issubclass(t, (AbstractStateConstraint, AbstractSnapTo, AbstractSingleSnapTo))
 }
 
+# pylint: disable=too-many-arguments # make_constraint needs many args to support all constraints.
+
 # Non Value Constraint Overloads
 @overload
 def make_constraint(type_: SketchConstraint | str,
