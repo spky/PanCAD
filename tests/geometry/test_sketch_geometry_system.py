@@ -1,4 +1,4 @@
-"""Module for testing specifically the way that SketchGeometrySystems are 
+"""Module for testing specifically the way that SketchGeometrySystems are
 initialized and handle errors.
 """
 from __future__ import annotations
@@ -6,9 +6,11 @@ from __future__ import annotations
 import pytest
 from typing import TYPE_CHECKING
 
+from pancad.constants import ConstraintReference
 from pancad.geometry.point import Point
 from pancad.geometry.line_segment import LineSegment
 from pancad.geometry.system import TwoDSketchSystem
+from pancad.geometry.sketch import Sketch
 from pancad.exceptions import (DupeUidError,
                                HasDependentsError,
                                MissingCADDependencyError)
@@ -16,10 +18,74 @@ from pancad.geometry.unique_lists import SketchGeometryList, SketchConstraintLis
 from pancad.constraints.snapto import Horizontal
 from pancad.constraints.state_constraint import Coincident
 
+from tests.testing_utils.thing_factory import make_feature
+
 if TYPE_CHECKING:
-    from pancad.abstract import AbstractConstraint, AbstractGeometry
+    from pancad.abstract import AbstractConstraint, AbstractGeometry, PancadThing
+
+    from tests._typing import FeatureSpec
 
     SequencePair = tuple[list[AbstractGeometry], list[AbstractConstraint]]
+
+
+@pytest.fixture(name="sketch")
+def fixture_sketch(feat_geo_sys_sample_samplesketches: FeatureSpec) -> Sketch:
+    """A sketch generated from the samplesketch data file."""
+    feature = make_feature(feat_geo_sys_sample_samplesketches)
+    assert isinstance(feature, Sketch)
+    return feature
+
+@pytest.fixture(name="things")
+def fixture_things(sketch: Sketch) -> list[PancadThing]:
+    """The list of feature geometry, sketch parent geometry, and constraints in a sketch."""
+    return [*sketch.feature_geometry,
+            *sketch.geometry_system.geometry, *sketch.geometry_system.constraints]
+
+@pytest.fixture(name="all_geometry")
+def fixture_all_geometry(sketch: Sketch) -> list[AbstractGeometry]:
+    """The list of all geometry inside a sketch."""
+    geometry = [*sketch.feature_geometry, *sketch.geometry_system.geometry]
+    return [child for geo in geometry for child in geo.children.values()]
+
+class TestSketchElementFinding:
+    """Tests for confirming that Sketch and its system can find all its elements using the sample
+    sketch inside feat_geo_sys_sample.toml.
+    """
+
+    def test_feature_level_find(self, sketch: Sketch, things: list[PancadThing]) -> None:
+        """Test that the sketch find method can find all the feature geometry, sketch constraints,
+        and parent geometry.
+        """
+        for thing in things:
+            assert thing.name is not None
+            assert sketch.find(thing.name) == thing
+
+    def test_system_level_find(self, sketch: Sketch) -> None:
+        """Test that the geometry system find method can find all the sketch constraints and
+        parent geometry.
+        """
+        for geometry in sketch.geometry_system.geometry:
+            assert geometry.name is not None
+            assert geometry == sketch.geometry_system.find(geometry.name)
+        for constraint in sketch.geometry_system.constraints:
+            assert constraint.name is not None
+            assert constraint == sketch.geometry_system.find(constraint.name)
+
+    def test_geometry_reference_find(self, sketch: Sketch,
+                                     all_geometry: list[AbstractGeometry]) -> None:
+        """Test that core and child geometry can be found using their references."""
+        for geometry in all_geometry:
+            prefix_name = geometry.parent.name if geometry.parent else geometry.name
+            assert sketch.find(f"{prefix_name}::{geometry.self_reference}")
+
+    def test_coordinate_system_find(self, sketch: Sketch) -> None:
+        """Test that the sketch geometry's coordinate system is returned when coordinate system
+        ConstraintReference is search for. For reference: This test is separated out since it's an
+        unusual case of a feature having a 'weak' ConstraintReference. Sketches inherently have
+        two coordinate systems (the one placing the sketch and the internal one), which is why
+        feature locations use Poses rather than having their own coordinate system.
+        """
+        assert sketch.find(ConstraintReference.CS) == sketch.geometry_system.coordinate_system
 
 # Setting up Fixtures
 @pytest.fixture(name="empty_system")
@@ -126,7 +192,6 @@ def test_delete_geometry_system(system_just_geometry: TwoDSketchSystem) -> None:
 def test_delete_geometry_with_constraints(system_with_constraints: TwoDSketchSystem) -> None:
     with pytest.raises(HasDependentsError):
         del system_with_constraints.geometry[0]
-
 
 # Testing ConstraintList
 def test_add_constraint_without_dependencies(empty_constraint_list: SketchConstraintList,
