@@ -87,6 +87,8 @@ class PancadThing(ABC):
     @abstractmethod
     def __repr__(self) -> str:
         strings = ["<", self.__class__.__name__, "{details}", ">"]
+        if self.name is not None:
+            strings.insert(2, f"'{self.name}'")
         if self.STR_VERBOSE:
             class_index = strings.index(self.__class__.__name__)
             strings.insert(class_index + 1, f"'{self.uid}'")
