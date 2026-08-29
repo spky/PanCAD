@@ -78,6 +78,12 @@ class Sketch(AbstractFeature):
         return self._geometry_system
 
     # Public Functions #
+    def find(self, name: str) -> PancadThing | None:
+        if result := super().find(name):
+            return result
+        # Sketch also searches its geometry system directly so the system doesn't need a name.
+        return self._geometry_system.find(name)
+
     def get_dependencies(self) -> list[PancadThing]:
         dependencies = set(super().get_dependencies())
         dependencies.update(

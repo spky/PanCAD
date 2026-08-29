@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
     from pancad.constants import SketchConstraint
+    from pancad.geometry.coordinate_system import CoordinateSystem
     from pancad.geometry.unique_lists import FeatureGeometryList
 
 
@@ -119,7 +120,7 @@ class AbstractFeature(PancadThing):
         for geometry in self.feature_geometry:
             if name == geometry.name:
                 return geometry
-            if name.split("::", 1)[0] == geometry.name:
+            if name.startswith(f"{geometry.name}::"):
                 return geometry.find(name.removeprefix(f"{geometry.name}::"))
         return None # No geometry matching the name was found
 
@@ -282,6 +283,11 @@ class AbstractGeometrySystem(AbstractGeometry):
 
     @property
     @abstractmethod
+    def coordinate_system(self) -> CoordinateSystem:
+        """The CoordinateSystem placing the system's geometry. Read-only."""
+
+    @property
+    @abstractmethod
     def elements(self) -> Sequence[AbstractGeometry | AbstractFeature]:
         """The elements in the system that are capable of being constrained."""
 
@@ -293,7 +299,7 @@ class AbstractGeometrySystem(AbstractGeometry):
         for element in self.elements:
             if element.name == name:
                 return element
-            if name.split("::", 1)[0] == element.name: # Check if the name is a nested reference
+            if name.startswith(f"{element.name}::"): # Check if the name is a nested reference
                 return element.find(name.removeprefix(f"{element.name}::"))
         for constraint in self.constraints:
             if constraint.name == name:

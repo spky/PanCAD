@@ -76,7 +76,6 @@ class FeatureSystem(AbstractFeatureSystem):
 
     @property
     def coordinate_system(self) -> CoordinateSystem:
-        """The CoordinateSystem placing the system's geometry. Read-only."""
         return self._coordinate_system
 
     @property
@@ -330,7 +329,6 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     # Properties #
     @property
     def coordinate_system(self) -> CoordinateSystem:
-        """The CoordinateSystem placing the system's geometry. Read-only."""
         return self._coordinate_system
 
     @property
