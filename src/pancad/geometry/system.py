@@ -491,7 +491,7 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         for geo in geometry:
             if isinstance(geo, str):
                 parent_name, ref = parse_geometry_qual_name(geo)
-                element = self.find(parent_name)
+                element = self.resolve_local(parent_name)
                 if not isinstance(element, AbstractGeometry):
                     if element:
                         msg = f"No parent geometry named '{parent_name}', found: {element}"

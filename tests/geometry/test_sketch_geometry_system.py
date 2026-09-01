@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pancad.constants import ConstraintReference
+from pancad.constants import ConstraintReference, QUAL_DELIM
 from pancad.geometry.point import Point
 from pancad.geometry.line_segment import LineSegment
 from pancad.geometry.system import TwoDSketchSystem
@@ -48,37 +48,36 @@ def fixture_all_geometry(sketch: Sketch) -> list[AbstractGeometry]:
     geometry = [*sketch.feature_geometry, *sketch.geometry_system.geometry]
     return [child for geo in geometry for child in geo.children.values()]
 
-class TestSketchElementFinding:
-    """Tests for confirming that Sketch and its system can find all its elements using the sample
-    sketch inside feat_geo_sys_sample.toml.
+class TestSketchElementResolution:
+    """Tests for confirming that Sketch and its system can resolve the names of all its elements
+    using the sample sketches inside feat_geo_sys_sample.toml.
     """
 
-    def test_feature_level_find(self, sketch: Sketch, things: list[PancadThing]) -> None:
+    def test_feature_level_resolve(self, sketch: Sketch, things: list[PancadThing]) -> None:
         """Test that the sketch find method can find all the feature geometry, sketch constraints,
         and parent geometry.
         """
         for thing in things:
             assert thing.name is not None
-            assert sketch.find(thing.name) == thing
+            assert sketch.resolve(thing.name) == thing
 
-    def test_system_level_find(self, sketch: Sketch) -> None:
+    def test_system_level_resolve(self, sketch: Sketch) -> None:
         """Test that the geometry system find method can find all the sketch constraints and
         parent geometry.
         """
         for geometry in sketch.geometry_system.geometry:
             assert geometry.name is not None
-            print(geometry)
-            assert geometry == sketch.geometry_system.find(geometry.name)
+            assert geometry == sketch.geometry_system.resolve(geometry.name)
         for constraint in sketch.geometry_system.constraints:
             assert constraint.name is not None
-            assert constraint == sketch.geometry_system.find(constraint.name)
+            assert constraint == sketch.geometry_system.resolve(constraint.name)
 
-    def test_geometry_reference_find(self, sketch: Sketch,
+    def test_geometry_reference_resolve(self, sketch: Sketch,
                                      all_geometry: list[AbstractGeometry]) -> None:
         """Test that core and child geometry can be found using their references."""
         for geometry in all_geometry:
             prefix_name = geometry.parent.name if geometry.parent else geometry.name
-            assert sketch.find(f"{prefix_name}::{geometry.self_reference}")
+            assert sketch.resolve(f"{prefix_name}{QUAL_DELIM}{geometry.self_reference}")
 
     def test_coordinate_system_find(self, sketch: Sketch) -> None:
         """Test that the sketch geometry's coordinate system is returned when coordinate system
@@ -87,7 +86,7 @@ class TestSketchElementFinding:
         two coordinate systems (the one placing the sketch and the internal one), which is why
         feature locations use Poses rather than having their own coordinate system.
         """
-        assert sketch.find(ConstraintReference.CS) == sketch.geometry_system.coordinate_system
+        assert sketch.resolve(ConstraintReference.CS) == sketch.geometry_system.coordinate_system
 
 # Setting up Fixtures
 @pytest.fixture(name="empty_system")

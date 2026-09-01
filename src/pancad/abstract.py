@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from pancad.constants import ConstraintReference
+from pancad.constants import ConstraintReference, QUAL_DELIM
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -77,6 +77,17 @@ class PancadThing(ABC):
     def system(self, value: AbstractGeometrySystem | None) -> None:
         self._system = value
 
+    @property
+    def qualified_name(self) -> str:
+        """The unique qualified name of the element prefixed with all the namespaces it is owned
+        by. If the element is not named, the uid is used instead.
+        """
+        name = self.name if self.name is not None else str(self.uid)
+        if self.system and self.system.name is not None:
+            # The system's name is only used if its defined, otherwise it's the system's feature.
+            return f"{self.system.qualified_name}{QUAL_DELIM}{name}"
+        return name
+
     @abstractmethod
     def get_dependencies(self) -> list[PancadThing]:
         """Returns the object's external dependencies. Dependencies are anything
@@ -84,11 +95,23 @@ class PancadThing(ABC):
         would not be able to function.
         """
 
+    def resolve(self, name: str) -> PancadThing | None:
+        """Return the element with the name or qualified name starting from this element."""
+        if element := self.resolve_local(name):
+            return element
+        if self.system:
+            return self.system.resolve(name)
+        return None # No system or local match, so there is no possible match.
+
+    @abstractmethod
+    def resolve_local(self, name: str) -> PancadThing | None:
+        """Return the element with the name or qualified name in the local element's scope."""
+
     @abstractmethod
     def __repr__(self) -> str:
         strings = ["<", self.__class__.__name__, "{details}", ">"]
-        if self.name is not None:
-            strings.insert(2, f"'{self.name}'")
+        if self._name is not None:
+            strings.insert(2, f"'{self._name}'")
         if self.STR_VERBOSE:
             class_index = strings.index(self.__class__.__name__)
             strings.insert(class_index + 1, f"'{self.uid}'")
@@ -96,6 +119,10 @@ class PancadThing(ABC):
 
     def __str__(self) -> str:
         return repr(self)
+
+    @abstractmethod
+    def __contains__(self, item: object) -> bool:
+        """A PancadThing contains another object when it either owns it or constrains it."""
 
 class AbstractFeature(PancadThing):
     """A class defining the interfaces provided by pancad Feature elements."""
@@ -115,18 +142,14 @@ class AbstractFeature(PancadThing):
             dependencies.update(self.system.get_topo_dependencies(self))
         return list(dependencies)
 
-    def find(self, name: str) -> PancadThing | None:
-        """Returns a PancadThing inside this feature using a name or a qualified name.
-
-        :returns: The named element or None if no element is found.
-        """
+    def resolve_local(self, name: str) -> PancadThing | None:
         # names have the format of 'geometry_name' or 'geometry_name::reference_name' except for
         # features containing other levels of features/geometry with possible added constraints.
         for geometry in self.feature_geometry:
             if name == geometry.name:
                 return geometry
-            if name.startswith(f"{geometry.name}::"):
-                return geometry.find(name.removeprefix(f"{geometry.name}::"))
+            if name.startswith(prefix := f"{geometry.name}{QUAL_DELIM}"):
+                return geometry.resolve_local(name.removeprefix(prefix))
         return None # No geometry matching the name was found
 
     @property
@@ -141,6 +164,13 @@ class AbstractFeature(PancadThing):
         feature element since the uids would not be the same.
         """
 
+    def __contains__(self, item: object) -> bool:
+        # Checks whether the item is one of the feature's geometry or inside of one.
+        if isinstance(item, PancadThing):
+            if isinstance(item, AbstractGeometry) and item in self.feature_geometry:
+                return True
+            return any(item in geometry for geometry in self.feature_geometry)
+        return False
 
 class AbstractGeometry(PancadThing):
     """A class defining interfaces common to all pancad Geometry Elements."""
@@ -201,6 +231,14 @@ class AbstractGeometry(PancadThing):
         self._parent = value
 
     @property
+    def qualified_name(self) -> str:
+        # Geometry's name uses its feature name it's inside a feature rather than its system's
+        if self.feature and self.feature.name is not None:
+            name = self.name if self.name is not None else str(self.uid)
+            return f"{self.feature.qualified_name}::{name}"
+        return super().qualified_name
+
+    @property
     def self_reference(self) -> ConstraintReference:
         """The ConstraintReference that applies to this instance of geometry.
         Example: A circle's curve would be CORE, but its center point would
@@ -228,17 +266,22 @@ class AbstractGeometry(PancadThing):
             dependencies.append(self.feature)
         return dependencies
 
-    def find(self, name: str) -> PancadThing | None:
-        """Returns a PancadThing inside this geometry using a name or a qualified name.
-
-        :returns: The named element or None if no element is found.
-        """
+    def resolve_local(self, name: str) -> PancadThing | None:
+        # User defined names are prioritized over ConstraintReference names.
         # names have the format of 'geometry_name' or 'geometry_name::reference_name' except for
         # geometry containing other levels of geometry with possible added constraints.
-        try: # Check children names first, will also return the geometry itself if name matches.
-            return next(g for g in self.children.values() if g.name == name)
-        except StopIteration: # Check references since none of the children names matched.
-            return next((g for r, g in self.children.items() if r == name), None)
+        try:
+            scope_name, local_name = name.split(QUAL_DELIM, 1)
+        except ValueError: # There is no delimiter in the name, so this is a final resolution.
+            scope_name, local_name = name, None
+        geometry = next((g for g in self.children.values() if g.name == scope_name), None)
+        if not geometry: # Check references if none of the names matched
+            geometry = next((g for r, g in self.children.items() if r == scope_name), None)
+        if not geometry:
+            return None # No geometry means no match even if local_name is defined.
+        if local_name is None:
+            return geometry # End point of a resolution.
+        return geometry.resolve_local(local_name) # Another level since there's still name left.
 
     def get_reference(self, reference: ConstraintReference) -> AbstractGeometry:
         """Returns the subgeometry associated with the reference."""
@@ -270,6 +313,17 @@ class AbstractGeometry(PancadThing):
         is 2D or 3D.
         """
 
+    def __contains__(self, item: object) -> bool:
+        # Checks whether the item is one of the geometry's children or inside one.
+        if isinstance(item, PancadThing):
+            direct_children = [child for child in self.children.values() if child != self]
+            if isinstance(item, AbstractGeometry):
+                # Filter out any self-referential children (CORE) to prevent infinte recursion
+                if item in direct_children:
+                    return True
+            return any(item in child for child in direct_children)
+        return False
+
 class AbstractGeometrySystem(AbstractGeometry):
     """A type of geometry defining interfaces provided by systems of pancad
     Geometry elements. A geometry system is a system managing interfaces between
@@ -300,28 +354,43 @@ class AbstractGeometrySystem(AbstractGeometry):
     def elements(self) -> Sequence[AbstractGeometry | AbstractFeature]:
         """The elements in the system that are capable of being constrained."""
 
-    def find(self, name: str) -> PancadThing | None:
-        """Returns an element in the system with the name."""
-        result: PancadThing | None
-        if result := super().find(name): # Check the system itself first.
-            return result
-        for element in self.elements:
-            if element.name == name:
-                return element
-            if name.startswith(f"{element.name}::"): # Check if the name is a nested reference
-                return element.find(name.removeprefix(f"{element.name}::"))
-        for constraint in self.constraints:
-            if constraint.name == name:
-                return constraint
-        return None # No match found
+    def resolve(self, name: str) -> PancadThing | None:
+        if thing := super().resolve(name):
+            return thing
+        if self.feature:
+            return self.feature.resolve(name)
+        return None # The system is not in a feature, so there is no higher context to search.
+
+    def resolve_local(self, name: str) -> PancadThing | None:
+        if thing := super().resolve_local(name): # Check system level geometry first using super.
+            return thing
+        try:
+            scope_name, local_name = name.split(QUAL_DELIM, 1)
+        except ValueError: # There is no delimiter in the name, so this is a final resolution.
+            scope_name, local_name = name, None
+        # Prioritize constraints since they're less likely to be nested than geometry/features.
+        for thing_list in (self.constraints, self.elements):
+            if thing := next((t for t in thing_list if t.name == scope_name), None):
+                if local_name:
+                    return thing.resolve_local(local_name)
+                return thing
+        return None
 
     @abstractmethod
     def get_constraints_on(self, element: PancadThing) -> list[AbstractConstraint]:
         """Returns the constraints applied to the element inside the system."""
 
-    @abstractmethod
     def __contains__(self, item: object) -> bool:
         """Checks whether the item is inside the geometry system."""
+        if super().__contains__(item):
+            return True
+        if isinstance(item, PancadThing):
+            if isinstance(item, (AbstractGeometry, AbstractFeature)) and item in self.elements:
+                return True
+            if isinstance(item, AbstractConstraint):
+                return item in self.constraints
+            return any(item in element for element in self.elements)
+        return False
 
 class AbstractFeatureSystem(AbstractGeometrySystem):
     """A type of geometry system defining the interfaces provided by systems of topologically
@@ -439,7 +508,19 @@ class AbstractConstraint(PancadThing):
         """
         return [geometry.self_reference for geometry in self._geometry]
 
+    def resolve_local(self, name: str) -> PancadThing | None:
+        return None # Constraints do not own anything locally by default
+
     # Dunders
+    def __contains__(self, item: object) -> bool:
+        # Checks whether the item is one of the constrained geometry or one of the children's
+        # children elements.
+        if isinstance(item, PancadThing):
+            if isinstance(item, AbstractGeometry) and item in self._geometry:
+                return True
+            return any(item in g for g in self._geometry)
+        return False
+
     def __repr__(self) -> str:
         return str(self)
 

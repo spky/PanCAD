@@ -119,6 +119,9 @@ class PartFile(PancadThing):
         freecad_api_doc = new_document_from_part(self)
         freecad_api_doc.saveAs(str(path))
 
+    def resolve_local(self, name: str) -> PancadThing | None:
+        raise NotImplementedError("local name resolution has not been implemented for files yet")
+
     # Dunders
     def __contains__(self, item: AbstractFeature | AbstractGeometry) -> bool:
         return item in self.container
