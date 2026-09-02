@@ -120,9 +120,14 @@ class PancadThing(ABC):
     def __str__(self) -> str:
         return repr(self)
 
-    @abstractmethod
     def __contains__(self, item: object) -> bool:
-        """A PancadThing contains another object when it either owns it or constrains it."""
+        """A PancadThing contains another object when it is inside its local scope.
+
+        :param item: Either the PancadThing to check for or the name or qualified name to resolve.
+        """
+        if isinstance(item, str):
+            return bool(self.resolve_local(item))
+        return False
 
 class AbstractFeature(PancadThing):
     """A class defining the interfaces provided by pancad Feature elements."""
@@ -166,6 +171,8 @@ class AbstractFeature(PancadThing):
 
     def __contains__(self, item: object) -> bool:
         # Checks whether the item is one of the feature's geometry or inside of one.
+        if super().__contains__(item):
+            return True
         if isinstance(item, PancadThing):
             if isinstance(item, AbstractGeometry) and item in self.feature_geometry:
                 return True
@@ -315,6 +322,8 @@ class AbstractGeometry(PancadThing):
 
     def __contains__(self, item: object) -> bool:
         # Checks whether the item is one of the geometry's children or inside one.
+        if super().__contains__(item):
+            return True
         if isinstance(item, PancadThing):
             direct_children = [child for child in self.children.values() if child != self]
             if isinstance(item, AbstractGeometry):
@@ -515,6 +524,8 @@ class AbstractConstraint(PancadThing):
     def __contains__(self, item: object) -> bool:
         # Checks whether the item is one of the constrained geometry or one of the children's
         # children elements.
+        if super().__contains__(item):
+            return True
         if isinstance(item, PancadThing):
             if isinstance(item, AbstractGeometry) and item in self._geometry:
                 return True

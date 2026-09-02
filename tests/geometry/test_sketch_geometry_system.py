@@ -73,7 +73,7 @@ class TestSketchElementResolution:
             assert constraint == sketch.geometry_system.resolve(constraint.name)
 
     def test_geometry_reference_resolve(self, sketch: Sketch,
-                                     all_geometry: list[AbstractGeometry]) -> None:
+                                        all_geometry: list[AbstractGeometry]) -> None:
         """Test that core and child geometry can be found using their references."""
         for geometry in all_geometry:
             prefix_name = geometry.parent.name if geometry.parent else geometry.name
@@ -81,12 +81,29 @@ class TestSketchElementResolution:
 
     def test_coordinate_system_find(self, sketch: Sketch) -> None:
         """Test that the sketch geometry's coordinate system is returned when coordinate system
-        ConstraintReference is search for. For reference: This test is separated out since it's an
-        unusual case of a feature having a 'weak' ConstraintReference. Sketches inherently have
-        two coordinate systems (the one placing the sketch and the internal one), which is why
-        feature locations use Poses rather than having their own coordinate system.
+        ConstraintReference is search for.
+
+        .. note:: This test is separated out since it's an unusual case of a feature having a
+            'weak' ConstraintReference. Sketches inherently have two coordinate systems (the one
+            placing the sketch and the internal one), which is why feature locations use Poses
+            rather than having their own coordinate system.
         """
         assert sketch.resolve(ConstraintReference.CS) == sketch.geometry_system.coordinate_system
+
+    def test_parent_qual_name_resolution(self, sketch: Sketch, things: list[PancadThing]) -> None:
+        """Test that the all sketch constraints and parent geometry qualified names can be
+        resolved by the sketch.
+        """
+        for thing in things:
+            # Split the first element off the name since it would be the sketch's name.
+            assert sketch.resolve(thing.qualified_name.split(QUAL_DELIM, 1)[-1]) == thing
+
+    def test_qual_name_contains(self, sketch: Sketch, things: list[PancadThing]) -> None:
+        """Test that all sketch constraints and parent geometry qualified names return True when
+        checked for containment.
+        """
+        for thing in things:
+            assert thing.qualified_name.split(QUAL_DELIM, 1)[-1] in sketch
 
 # Setting up Fixtures
 @pytest.fixture(name="empty_system")
