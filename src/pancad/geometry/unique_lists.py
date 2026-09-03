@@ -256,8 +256,13 @@ class FeatureConstraintList(UniqueCADList[AbstractConstraint]):
     def missing_dependencies(self,
                              value: AbstractConstraint) -> list[AbstractFeature]:
         """Returns missing feature dependencies for a constraint."""
-        return [geometry.feature for geometry in value.get_parents()
-                if geometry.feature not in self._parent and geometry.feature]
+        missing: list[AbstractFeature] = []
+        for geometry in value.get_parents():
+            if (geometry.feature
+                    and geometry.feature not in self._parent
+                    and geometry != self._parent):
+                missing.append(geometry.feature)
+        return missing
 
     #Private Methods
     def _assign_system(self, value: AbstractConstraint) -> None:
@@ -534,8 +539,7 @@ class SketchConstraintList(UniqueSketchElementList[AbstractConstraint]):
 
     def missing_dependencies(self, value: AbstractConstraint) -> list[AbstractGeometry]:
         """Returns missing geometry dependencies for a constraint."""
-        return [geometry for geometry in value.get_parents()
-                if geometry not in self._parent]
+        return [geometry for geometry in value.get_geometry() if geometry not in self._parent]
 
     # Private Methods
     def _raise_if_missing_dependencies(self, value: AbstractConstraint) -> None:

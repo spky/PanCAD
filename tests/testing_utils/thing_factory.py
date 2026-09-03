@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import math
 
+from pancad.constants import SketchConstraint
 from pancad.geometry.coordinate_system import Pose
 from pancad.geometry.point import Point
 from pancad.geometry.line import Line
@@ -32,12 +34,19 @@ def _sketch(spec: FeatureSpec) -> Sketch:
     for geometry in spec.params["geometry"]:
         feature.geometry_system.add_geometry(make_geometry(geometry), geometry.construction)
     for constraint in spec.params["constraints"]:
-        refs = [f"{n}::{r}" for n, r in constraint.refs]
         kwargs: ConstraintKwargs = {"unit": constraint.unit, "quadrant": constraint.quadrant,
                                     "is_radians": constraint.is_radians}
         if constraint.params:
-            kwargs["value"] = constraint.params["scalars"].get("value")
-        feature.geometry_system.constrain(constraint.type_, *refs, name=constraint.name, **kwargs)
+            value = constraint.params["scalars"].get("value")
+            assert value is not None
+            kwargs["value"] = value
+            if constraint.type_ == SketchConstraint.ANGLE and not constraint.is_radians:
+                kwargs["value"] = math.degrees(value)
+        try:
+            feature.geometry_system.constrain(constraint.type_, *constraint.refs,
+                                              name=constraint.name, **kwargs)
+        except (ValueError, LookupError) as exc:
+            raise ValueError(f"Constraint '{constraint.name}' failed: {exc}") from exc
     return feature
 
 # Geometry Factories #############################################################################

@@ -4,7 +4,7 @@ program.
 
 from typing import TypedDict, NamedTuple, TypeVar, Union
 
-from pancad.constants import ConstraintReference, SketchConstraint
+from pancad.constants import SketchConstraint
 from pancad.utils.quat import Quat
 from pancad.utils.pancad_types import SpaceVector
 
@@ -44,7 +44,7 @@ class ConstraintSpec(NamedTuple):
     """A NamedTuple with enough information to create a pancad constraint element for a test."""
     name: str
     type_: SketchConstraint
-    refs: tuple[tuple[str, ConstraintReference], ...]
+    refs: tuple[str, ...]
     params: GeometrySampleData | None
     unit: str | None = None
     quadrant: int | None = None

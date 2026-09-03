@@ -26,9 +26,10 @@ type = "coincident"
 # Names must be synced with the geometry table. The '::' separates the name from the reference.
 geometry = ["line::core", "point::core"]
 
-# [samplesketches.2d_point_and_line.constraints.geometry_name_0_line_angle_to_x]
-# type = "angle"
-# geometry = ["feature_name_0_system::x", "geometry_name_0::core"]
-# # All currently supported value constraints can just use 'value', but future constraints like
-# # rotation constraints may require quaternions or vectors.
-# degree_scalars = {value = 45} # Use the GeometrySampleData system with standardized names.
+[samplesketches.2d_point_and_line.constraints.line_angle_to_x]
+type = "angle"
+geometry = ["x", "line::core"]
+# All currently supported value constraints can just use 'value', but future constraints like
+# rotation constraints may require quaternions or vectors.
+degree_scalars = {value = 45} # Use the GeometrySampleData system with standardized names.
+quadrant = 4

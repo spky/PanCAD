@@ -18,7 +18,6 @@ from pancad.geometry.unique_lists import (
     FeatureConstraintList,
 )
 from pancad.constraints._generator import make_constraint
-from pancad.utils.geometry import parse_geometry_qual_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -168,7 +167,7 @@ class FeatureSystem(AbstractFeatureSystem):
 
         :raises LookupError: When the value is not in the system.
         """
-        if value not in self:
+        if value not in self and value != self.feature:
             msg = f"Provided value '{value}' is not in system '{self}'"
             raise LookupError(msg)
         # Determine the topological index of the value
@@ -247,13 +246,6 @@ class FeatureSystem(AbstractFeatureSystem):
         return self
 
     # Python Dunders
-    def __contains__(self, item: object) -> bool:
-        if isinstance(item, PancadThing):
-            return item in [*self.features, *self.constraints, self.feature]
-        if isinstance(item, str):
-            return any(item == t.name for t in [*self.features, *self.constraints, self.feature])
-        return False
-
     def __len__(self) -> int:
         return len(self.coordinate_system)
 
@@ -490,15 +482,13 @@ class SketchGeometrySystem(AbstractGeometrySystem):
         constrained: list[AbstractGeometry] = []
         for geo in geometry:
             if isinstance(geo, str):
-                parent_name, ref = parse_geometry_qual_name(geo)
-                element = self.resolve_local(parent_name)
+                element = self.resolve_local(geo)
+                if not element:
+                    raise LookupError(f"System does not have an element named '{geo}'")
                 if not isinstance(element, AbstractGeometry):
-                    if element:
-                        msg = f"No parent geometry named '{parent_name}', found: {element}"
-                        raise TypeError(msg)
-                    raise LookupError(f"System does not have an element named '{parent_name}'")
-                geo = element.get_reference(ref)
-            if geo in self:
+                    raise TypeError(f"{geo} refers to {element}, expected Geometry")
+                constrained.append(element)
+            elif geo in self:
                 constrained.append(geo)
             else:
                 raise LookupError(f"Geometry {geo} is not in the system")
@@ -533,13 +523,6 @@ class SketchGeometrySystem(AbstractGeometrySystem):
     # Python Dunders #
     def __len__(self) -> int:
         return len(self.coordinate_system)
-
-    def __contains__(self, item: object) -> bool:
-        if isinstance(item, (AbstractGeometry, AbstractConstraint)):
-            return item in self.geometry or item in self.constraints
-        if isinstance(item, str):
-            return any(item == t.name for t in [*self.geometry, *self.constraints])
-        return False
 
     def __repr__(self) -> str:
         return super().__repr__().format(

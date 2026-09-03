@@ -152,21 +152,15 @@ def _read_geometry_spec(name: str, spec: dict[str, Any], type_: str | None=None)
 
 def _read_constraint_spec(name: str, spec: dict[str, Any]) -> ConstraintSpec:
     # Reads a constraint's name and parameters from a data file's dictionary.
-    geometry_refs: list[tuple[str, CR]] = []
-    for geometry in spec["geometry"]:
-        refs = tuple(str(r) for r in geometry.rsplit("::", 1))
-        try:
-            geometry_refs.append((refs[0], CR(refs[1])))
-        except IndexError as exc:
-            raise ValueError(f"No '::' found in {geometry}") from exc
-        except ValueError as exc:
-            raise ValueError(f"Unexpected ConstraintReference: {refs[1]}") from exc
     params: GeometrySampleData | None
     try:
         params = _read_geometry_data_entry(spec)
     except LookupError:
         params = None # No vectors or scalars found, so this constraint doesn't need params.
-    return ConstraintSpec(str(name), SC(spec["type"]), tuple(geometry_refs), params)
+    return ConstraintSpec(str(name), SC(spec["type"]), tuple(spec["geometry"]), params,
+                          quadrant=spec.get("quadrant"),
+                          unit=spec.get("unit"),
+                          is_radians=spec.get("is_radians"))
 
 def _read_feature_spec(name: str, spec: dict[str, Any]) -> FeatureSpec:
     geometry = tuple(_read_geometry_spec(n, s) for n, s in spec.get("geometry", {}).items())

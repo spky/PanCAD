@@ -8,7 +8,6 @@ from warnings import catch_warnings
 
 import numpy as np
 
-from pancad.constants import ConstraintReference
 from pancad.utils import trigonometry as trig
 from pancad.utils.quat import Quat
 
@@ -91,31 +90,6 @@ def get_unique_vector(vector: Sequence[float] | Numpy1D) -> tuple[float, ...] | 
     if isinstance(vector, np.ndarray):
         return np.array(tuple_vector)
     return tuple_vector
-
-def parse_geometry_qual_name(qual_name: str,
-                             allow_nested: bool=False) -> tuple[str, ConstraintReference]:
-    """Reads a qualified name referring to geometry and returns the name portion separated from
-    its reference portion. If no reference portion is present, the name is taken to be referring
-    to the geometry's 'core' reference.
-
-    :param qual_name: A name and reference to a geometry, using '::' as a delimiter.
-        Ex: 'name::ref' or 'system::name::ref' (a geometry named 'name' nested in 'system')
-    :param allow_nested: Whether to raise a ValueError when the string past the last delimiter is
-        not a valid ConstraintReference or to assume that is another name.
-    """
-    try:
-        name, last = qual_name.rsplit("::", 1)
-    except ValueError: # No '::' in the qual_name implies a 'core' reference.
-        last = "core"
-    try:
-        ref = ConstraintReference(last)
-    except ValueError as exc:
-        if not allow_nested:
-            msg = f"Invalid ConstraintReference at end of qualified name: {qual_name}"
-            raise ValueError(msg) from exc
-        name = f"{name}::{last}"
-        ref = ConstraintReference.CORE
-    return name, ref
 
 def parse_vector(*components: float | Collection[float]) -> SpaceVector:
     """Batches structures of vector component inputs to a tuple of Reals.
