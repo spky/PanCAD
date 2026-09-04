@@ -20,6 +20,21 @@ Numpy2D = np.ndarray[tuple[int, int], np.dtype[np.float64]]
 
 SpaceVector = Space2DVector | Space3DVector
 
+class ConstraintKwargs(TypedDict, total=False):
+    """A dictionary of all keyword arguments that can be used to create a pancad constraint that
+    are specific to constraints.
+
+    :param value: The constraint's associated value. Can be a length or an angle and is required
+        for value constraints.
+    :param unit: The unit used for the constraint.
+    :param is_radians: Whether the value of an angle constraint is provided in radians.
+    :param quadrant: The quadrant an angle constraint should appear in.
+    """
+    value: float | None
+    unit: str | None
+    quadrant: int | None
+    is_radians: bool | None
+
 class SqliteTomlConfig(TypedDict):
     """A dictionary of settings for storing pancad sqlite storage."""
     conform_type: dict[str, str]

@@ -46,7 +46,7 @@ class CoordinateSystem(AbstractGeometry):
     _plane_names: list[Literal["yz", "xz", "xy"]] = ["yz", "xz", "xy"]
 
     def __init__(self, origin: Collection[float], rotation: Numpy2D | Quat | None=None,
-                 *, uid: UUID | str | None=None) -> None:
+                 *, uid: UUID | str | None=None, name: str | None=None) -> None:
         self.uid = uid
         origin = Point(origin)
         vectors = [[0] * i + [1] + [0] * (len(origin) - i - 1) for i in range(len(origin))]
@@ -60,7 +60,7 @@ class CoordinateSystem(AbstractGeometry):
         # object so the type needs to be checked with isinstance.
         references = {CR(k): v for k, v in self._sys_refs.items()
                       if isinstance(v, AbstractGeometry)}
-        super().__init__({CR.CORE: self, **references})
+        super().__init__({CR.CORE: self, **references}, name=name)
         if rotation is not None:
             self.rotate(rotation)
 
@@ -237,8 +237,11 @@ class CoordinateSystem(AbstractGeometry):
 class Pose(AbstractGeometry):
     """The position and orientation of a 3D object."""
 
-    def __init__(self, coordinate_system: CoordinateSystem,
-                 *, uid: str | UUID | None=None) -> None:
+    def __init__(self,
+                 coordinate_system: CoordinateSystem,
+                 *,
+                 uid: str | UUID | None=None,
+                 name: str | None=None) -> None:
         self.uid = uid
         if (dimensions := len(coordinate_system)) != 3:
             raise ValueError("Expected 3D coordinate system,"
@@ -255,7 +258,8 @@ class Pose(AbstractGeometry):
                 CR.RIGHT: self._coordinate_system.xz_plane,
                 CR.TOP: self._coordinate_system.yz_plane,
                 CR.CS: self._coordinate_system,
-            }
+            },
+            name=name
         )
 
     @classmethod
@@ -265,6 +269,18 @@ class Pose(AbstractGeometry):
         """Initializes a Pose from yaw, pitch, and roll angles in radians."""
         coordinate_system = CoordinateSystem.from_yaw_pitch_roll(position, yaw, pitch, roll)
         return cls(coordinate_system, uid=uid)
+
+    @classmethod
+    def from_rotation(cls, origin: Collection[float], rotation: Numpy2D | Quat | None=None,
+                      *, uid: UUID | str | None=None, name: str | None=None) -> Self:
+        """Initializes a Pose using the origin point and a rotation around that point.
+
+        :param origin: A 3D center Point of the Pose's coordinate system.
+        :param rotation: A rotation matrix or quaternion to rotate a canonical 3D
+            CoordinateSystem to an orientation. Leaves the canonical system unrotated when None.
+        :param uid: The unique ID of the Pose.
+        """
+        return cls(CoordinateSystem(origin, rotation), uid=uid, name=name)
 
     @property
     def coordinate_system(self) -> CoordinateSystem:

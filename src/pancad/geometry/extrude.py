@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from pancad.abstract import AbstractFeature
 from pancad.constants import FeatureType
 from pancad.utils.initialize import get_pancad_config
+from pancad.geometry.unique_lists import FeatureGeometryList
 
 if TYPE_CHECKING:
     from numbers import Real
@@ -78,6 +79,7 @@ class Extrude(AbstractFeature):
         self.uid = uid
         self.profile = profile
         self.settings = settings
+        self._feature_geometry = FeatureGeometryList(self, [])
 
     # Class Methods #
     @classmethod
@@ -103,6 +105,11 @@ class Extrude(AbstractFeature):
                    name=name, uid=uid, system=system)
 
     # Properties #
+
+    @property
+    def feature_geometry(self) -> FeatureGeometryList:
+        return self._feature_geometry
+
     @property
     def length(self) -> Real:
         """The linear length of the extrude in its normal direction."""

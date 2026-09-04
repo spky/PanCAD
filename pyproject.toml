@@ -138,6 +138,8 @@ files = [
     "src/pancad/geometry/line.py",
     "src/pancad/geometry/unique_lists.py",
     "src/pancad/geometry/coordinate_system.py",
+    "src/pancad/geometry/system.py",
+    "src/pancad/geometry/sketch.py",
     "src/pancad/utils/geometry.py",
     "src/pancad/utils/initialize.py",
     "src/pancad/utils/trigonometry.py",
@@ -157,5 +159,7 @@ files = [
     "tests/geometry/test_line.py",
     "tests/geometry/test_coordinate_system.py",
     "tests/geometry/test_make_constraint.py",
+    "tests/geometry/test_sketch_geometry_system.py",
+    "tests/testing_utils/thing_factory.py",
     "tests/testing_utils/plotting.py",
 ]

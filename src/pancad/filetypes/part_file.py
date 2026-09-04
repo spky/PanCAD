@@ -64,10 +64,9 @@ class PartFile(PancadThing):
                  container: FeatureContainer | None=None,
                  *,
                  uid: str | None=None) -> None:
-        self.name = name
         self.uid = uid
         self.container = container
-        super().__init__()
+        super().__init__(name=name)
 
     # Properties
     @property
@@ -119,6 +118,9 @@ class PartFile(PancadThing):
         )
         freecad_api_doc = new_document_from_part(self)
         freecad_api_doc.saveAs(str(path))
+
+    def resolve_local(self, name: str) -> PancadThing | None:
+        raise NotImplementedError("local name resolution has not been implemented for files yet")
 
     # Dunders
     def __contains__(self, item: AbstractFeature | AbstractGeometry) -> bool:

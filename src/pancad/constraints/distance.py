@@ -83,7 +83,8 @@ class Angle(AbstractValue):
                  quadrant: int,
                  uid: UUID | str | None=None,
                  is_radians: bool=False,
-                 system: AbstractGeometrySystem | None=None) -> None:
+                 system: AbstractGeometrySystem | None=None,
+                 name: str | None=None) -> None:
         if len(geometry) != 2:
             raise ValueError(f"Expected 2 geometries, provided {geometry}")
         if any(len(g) != 2 for g in geometry):
@@ -91,7 +92,7 @@ class Angle(AbstractValue):
             raise ValueError(f"Non-2D Geometry provided: {non_two_dimensional}")
         self._geometry = geometry
         self.uid = uid
-        super().__init__(system)
+        super().__init__(system, name=name)
         self.quadrant = quadrant
         self.unit = "degrees"
         if is_radians:
@@ -147,9 +148,10 @@ class AbstractDistance(AbstractValue):
 
     def __init__(self, *geometry: AbstractGeometry,
                  value: float, uid: UUID | str | None=None, unit: str | None=None,
-                 system: AbstractGeometrySystem | None=None) -> None:
+                 system: AbstractGeometrySystem | None=None,
+                 name: str | None=None) -> None:
         self.uid = uid
-        super().__init__(system)
+        super().__init__(system, name=name)
         if len(set(len(g) for g in geometry)) != 1:
             raise ValueError(f"Geometry not all the same dimension: {geometry}")
         self._geometry = geometry
@@ -182,10 +184,11 @@ class Abstract2GeometryDistance(AbstractDistance):
     """
     def __init__(self, *geometry: AbstractGeometry,
                  value: float, uid: UUID | str | None=None, unit: str | None=None,
-                 system: AbstractGeometrySystem | None=None) -> None:
+                 system: AbstractGeometrySystem | None=None,
+                 name: str | None=None) -> None:
         if len(geometry) != 2:
             raise ValueError(f"Expected 2 geometries, provided {geometry}")
-        super().__init__(*geometry, value=value, uid=uid, unit=unit, system=system)
+        super().__init__(*geometry, value=value, uid=uid, unit=unit, system=system, name=name)
 
 class Abstract1GeometryDistance(AbstractDistance):
     """An abstract class of constraints that can be applied **exactly one**
@@ -200,10 +203,11 @@ class Abstract1GeometryDistance(AbstractDistance):
     """
     def __init__(self, *geometry: AbstractGeometry,
                  value: float, uid: UUID | str | None=None, unit: str | None=None,
-                 system: AbstractGeometrySystem | None=None) -> None:
+                 system: AbstractGeometrySystem | None=None,
+                 name: str | None=None) -> None:
         if len(geometry) != 1:
             raise ValueError(f"Expected 2 geometries, provided {geometry}")
-        super().__init__(*geometry, value=value, uid=uid, unit=unit, system=system)
+        super().__init__(*geometry, value=value, uid=uid, unit=unit, system=system, name=name)
 
 # 2D and 3D Distance Classes #
 ################################################################################
@@ -221,11 +225,12 @@ class AbstractDistance2D(Abstract2GeometryDistance):
     """An abstract class for 2D distance constraints."""
     def __init__(self, *geometry: AbstractGeometry,
                  value: float, uid: UUID | str | None=None, unit: str | None=None,
-                 system: AbstractGeometrySystem | None=None) -> None:
+                 system: AbstractGeometrySystem | None=None,
+                 name: str | None=None) -> None:
         if any(len(g) != 2 for g in geometry):
             non_two_dimensional = [g for g in geometry if len(g) != 2]
             raise ValueError(f"Non-2D geometry provided: {non_two_dimensional}")
-        super().__init__(*geometry, value=value, uid=uid, unit=unit, system=system)
+        super().__init__(*geometry, value=value, uid=uid, unit=unit, system=system, name=name)
 
 class HorizontalDistance(AbstractDistance2D):
     """A constraint that sets the horizontal distance between two elements."""

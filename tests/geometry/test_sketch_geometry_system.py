@@ -1,138 +1,178 @@
-"""Module for testing specifically the way that SketchGeometrySystems are 
+"""Module for testing specifically the way that SketchGeometrySystems are
 initialized and handle errors.
 """
 from __future__ import annotations
 
-import pytest
 from typing import TYPE_CHECKING
 
+import pytest
+
+from pancad.constants import ConstraintReference, SketchConstraint as SC, QUAL_DELIM
+from pancad.constraints._generator import make_constraint
+from pancad.exceptions import DupeUidError, HasDependentsError, MissingCADDependencyError
 from pancad.geometry.point import Point
-from pancad.geometry.line_segment import LineSegment
-from pancad.geometry.system import TwoDSketchSystem
-from pancad.exceptions import (DupeUidError,
-                               HasDependentsError,
-                               MissingCADDependencyError)
-from pancad.geometry.unique_lists import SketchGeometryList, SketchConstraintList
-from pancad.constraints.snapto import Horizontal
-from pancad.constraints.state_constraint import Coincident
+from pancad.geometry.sketch import Sketch
+
+from tests.testing_utils.thing_factory import make_feature
 
 if TYPE_CHECKING:
-    from pancad.abstract import AbstractConstraint, AbstractGeometry
+    from pancad.abstract import AbstractGeometry, PancadThing
 
-# Setting up Fixtures
-@pytest.fixture
-def empty_system() -> TwoDSketchSystem:
-    yield TwoDSketchSystem()
+    from tests._typing import FeatureSpec
 
-@pytest.fixture
-def single_point() -> Point:
-    yield Point(0, 0)
 
-@pytest.fixture
-def empty_geometry_list(empty_system) -> SketchGeometryList:
-    yield empty_system.geometry
+@pytest.fixture(name="sketch")
+def fixture_sketch(feat_geo_sys_sample_samplesketches: FeatureSpec) -> Sketch:
+    """A sketch generated from the sample sketch data file."""
+    feature = make_feature(feat_geo_sys_sample_samplesketches)
+    assert isinstance(feature, Sketch)
+    return feature
 
-@pytest.fixture
-def empty_constraint_list(empty_system) -> SketchGeometryList:
-    yield empty_system.constraints
+@pytest.fixture(name="things")
+def fixture_things(sketch: Sketch) -> list[PancadThing]:
+    """The list of feature geometry, sketch parent geometry, and constraints inside the scope of a
+    sample sketch."""
+    return [*sketch.feature_geometry,
+            *sketch.geometry_system.geometry, *sketch.geometry_system.constraints]
 
-@pytest.fixture
-def list_of_points() -> list[Point]:
-    yield [Point(0, 0), Point(1, 1), Point(2, 2)]
+@pytest.fixture(name="all_geometry")
+def fixture_all_geometry(sketch: Sketch) -> list[AbstractGeometry]:
+    """The list of all geometry inside the scope of a sample sketch."""
+    geometry = [*sketch.feature_geometry, *sketch.geometry_system.geometry]
+    return [child for geo in geometry for child in geo.children.values()]
 
-@pytest.fixture(params=["list_of_points"])
-def multiple_geometry_list(empty_geometry_list, request) -> SketchGeometryList:
-    empty_geometry_list.extend(request.getfixturevalue(request.param))
-    yield empty_geometry_list
+@pytest.fixture(name="empty_sketch")
+def fixture_empty_sketch() -> Sketch:
+    """An empty sketch."""
+    return Sketch(name="initially_empty_sketch")
 
-@pytest.fixture
-def horizontal_line_segment() -> tuple[list[LineSegment], list[Horizontal]]:
-    line = LineSegment((0, 0), (1, 0))
-    yield [line], [Horizontal(line)]
-
-@pytest.fixture
-def line_segment_coincident_with_origin(empty_system) -> tuple[list[LineSegment],
-                                                               list[Coincident]]:
-    line = LineSegment((0, 0), (1, 0))
-    yield [line], [Coincident(line, empty_system.origin)]
-
-@pytest.fixture(
-    params = [
-        "horizontal_line_segment", "line_segment_coincident_with_origin",
-    ]
-)
-def geometry_and_constraint_sequences(request
-                                      ) -> tuple[list[AbstractGeometry],
-                                                 list[AbstractConstraint]]:
-    value = request.getfixturevalue(request.param)
-    yield value
-
-@pytest.fixture
-def system_just_geometry(empty_system,
-                         geometry_and_constraint_sequences
-                         ) -> SketchGeometrySystem:
-    geometry, _ = geometry_and_constraint_sequences
-    empty_system.geometry.extend(geometry)
-    yield empty_system
-
-@pytest.fixture
-def system_with_constraints(system_just_geometry,
-                            geometry_and_constraint_sequences
-                            ) -> SketchGeometrySystem:
-    """Systems where all geometry in the list has at least one constraint on it.
+class TestSketchElementResolution:
+    """Tests for confirming that Sketch and its system can resolve the names of all its elements
+    using the sample sketches inside feat_geo_sys_sample.toml.
     """
-    _, constraints = geometry_and_constraint_sequences
-    system_just_geometry.constraints.extend(constraints)
-    yield system_just_geometry
 
-# Testing GeometryList
-def test_system_coordinate_system_in_check(empty_system):
-    assert empty_system in empty_system.geometry
+    def test_feature_level_resolve(self, sketch: Sketch, things: list[PancadThing]) -> None:
+        """Test that the sketch find method can find all the feature geometry, sketch constraints,
+        and parent geometry.
+        """
+        for thing in things:
+            assert thing.name is not None
+            assert sketch.resolve(thing.name) == thing
 
-def test_append_geometry(empty_geometry_list, single_point):
-    empty_geometry_list.append(single_point)
-    assert empty_geometry_list[0] is single_point
+    def test_system_level_resolve(self, sketch: Sketch) -> None:
+        """Test that the geometry system find method can find all the sketch constraints and
+        parent geometry.
+        """
+        for geometry in sketch.geometry_system.geometry:
+            assert geometry.name is not None
+            assert geometry == sketch.geometry_system.resolve(geometry.name)
+        for constraint in sketch.geometry_system.constraints:
+            assert constraint.name is not None
+            assert constraint == sketch.geometry_system.resolve(constraint.name)
 
-def test_duped_geometry_list(empty_geometry_list, single_point):
-    empty_geometry_list.append(single_point)
-    with pytest.raises(DupeUidError):
-        empty_geometry_list.append(single_point)
+    def test_geometry_reference_resolve(self, sketch: Sketch,
+                                        all_geometry: list[AbstractGeometry]) -> None:
+        """Test that core and child geometry can be found using their references."""
+        for geometry in all_geometry:
+            prefix_name = geometry.parent.name if geometry.parent else geometry.name
+            assert sketch.resolve(f"{prefix_name}{QUAL_DELIM}{geometry.self_reference}")
 
-def test_delete_geometry_in_empty(empty_geometry_list, single_point):
-    empty_geometry_list.append(single_point)
-    del empty_geometry_list[0]
-    assert len(empty_geometry_list) == 0
+    def test_coordinate_system_find(self, sketch: Sketch) -> None:
+        """Test that the sketch geometry's coordinate system is returned when coordinate system
+        ConstraintReference is search for.
 
-def test_geometry_list_index(multiple_geometry_list):
-    for i in range(len(multiple_geometry_list)):
-        geometry = multiple_geometry_list[i]
-        assert multiple_geometry_list.index(geometry) == i
+        .. note:: This test is separated out since it's an unusual case of a feature having a
+            'weak' ConstraintReference. Sketches inherently have two coordinate systems (the one
+            placing the sketch and the internal one), which is why feature locations use Poses
+            rather than having their own coordinate system.
+        """
+        assert sketch.resolve(ConstraintReference.CS) == sketch.geometry_system.coordinate_system
 
-def test_assign_system(system_just_geometry):
-    for geometry in system_just_geometry.geometry:
-        assert geometry.system is system_just_geometry
-        assert geometry.feature is None
+    def test_parent_qual_name_resolution(self, sketch: Sketch, things: list[PancadThing]) -> None:
+        """Test that the all sketch constraints and parent geometry qualified names can be
+        resolved by the sketch.
+        """
+        for thing in things:
+            # Split the first element off the name since it would be the sketch's name.
+            assert sketch.resolve(thing.qualified_name.split(QUAL_DELIM, 1)[-1]) == thing
 
-def test_delete_geometry_system(system_just_geometry):
-    geometry = system_just_geometry.geometry[0]
-    del system_just_geometry.geometry[0]
-    assert geometry.system is None
-    assert geometry.feature is None
-
-def test_delete_geometry_with_constraints(system_with_constraints):
-    with pytest.raises(HasDependentsError):
-        del system_with_constraints.geometry[0]
+    def test_contains_qual_name(self, sketch: Sketch, things: list[PancadThing]) -> None:
+        """Test that all sketch constraints and parent geometry qualified names return True when
+        checked for containment.
+        """
+        for thing in things:
+            # Split off first qualified name prefix since the sketch doesn't contain itself.
+            assert thing.qualified_name.split(QUAL_DELIM, 1)[-1] in sketch
 
 
-# Testing ConstraintList
-def test_add_constraint_without_dependencies(empty_constraint_list,
-                                             geometry_and_constraint_sequences):
-    _, constraints = geometry_and_constraint_sequences
-    with pytest.raises(MissingCADDependencyError):
-        empty_constraint_list.append(constraints[0])
+class TestSketchGeometryList:
+    """Tests for confirming that Sketch system geometry lists are correctly constructed,
+    modifications are possible and invalid sketch states are checked for.
+    """
 
-def test_add_duped_constraint(geometry_and_constraint_sequences,
-                              system_with_constraints):
-    _, constraints = geometry_and_constraint_sequences
-    with pytest.raises(DupeUidError):
-        system_with_constraints.constraints.append(constraints[0])
+    def test_system_assignment(self, sketch: Sketch) -> None:
+        """Test that all sample sketch geometry had their system and feature assigned when they
+        were added to the sketch.
+        """
+        for geometry in sketch.geometry_system.geometry:
+            assert geometry.system == sketch.geometry_system
+            assert geometry.feature == sketch
+
+    def test_index(self, sketch: Sketch) -> None:
+        """Test that all sample sketch geometry list specific indicies can be returned."""
+        for i, geometry in enumerate(sketch.geometry_system.geometry):
+            assert sketch.geometry_system.geometry.index(geometry) == i
+
+    def test_append(self, empty_sketch: Sketch) -> None:
+        """Test that a geometry element can be appended to a sketch's geometry list."""
+        point = Point(1, 1)
+        empty_sketch.geometry_system.geometry.append(point)
+        assert empty_sketch.geometry_system.geometry[0] == point
+
+    def test_duplicated_geometry(self, empty_sketch: Sketch) -> None:
+        """Test that adding the same geometry twice to a sketch raises a DupeUidError."""
+        point = Point(1, 1)
+        empty_sketch.geometry_system.geometry.append(point)
+        with pytest.raises(DupeUidError):
+            empty_sketch.geometry_system.geometry.append(point)
+
+    def test_del(self, empty_sketch: Sketch) -> None:
+        """Test that deleting geometry from the custom unique list is possible and that the
+        removed geometry's system/feature properties are set to None.
+        """
+        point = Point(1, 1)
+        empty_sketch.geometry_system.geometry.append(point)
+        del empty_sketch.geometry_system.geometry[0]
+        assert len(empty_sketch.geometry_system.geometry) == 0
+        assert point.system is None
+        assert point.feature is None
+
+    def test_del_with_constraints(self, empty_sketch: Sketch) -> None:
+        """Test that deleting geometry that still has constraints raises a HasDependentsError."""
+        system, point = empty_sketch.geometry_system, Point(0, 0)
+        system.geometry.append(point)
+        system.constrain(SC.COINCIDENT, empty_sketch.geometry_system.origin, point)
+        with pytest.raises(HasDependentsError):
+            del system.geometry[0]
+
+class TestSketchConstraintList:
+    """Tests confirming that Sketch system constraints and correctly constructed, modifications
+    are possible, and invalid sketch states are checked for.
+    """
+
+    def test_add_without_dependencies(self, empty_sketch: Sketch) -> None:
+        """Test that adding a constraint to a system without the constrained geometry already in
+        the system raises a missingcaddependencyerror.
+        """
+        constraint = make_constraint(SC.COINCIDENT,
+                                     Point(0, 0), empty_sketch.geometry_system.origin)
+        with pytest.raises(MissingCADDependencyError):
+            empty_sketch.geometry_system.constraints.append(constraint)
+
+    def test_duplicated_constraint(self, empty_sketch: Sketch) -> None:
+        """Test that adding the same constraint twice to a sketch raises a DupeUidError."""
+        system, point = empty_sketch.geometry_system, Point(0, 0)
+        system.geometry.append(point)
+        system.constrain(SC.COINCIDENT, empty_sketch.geometry_system.origin, point)
+        with pytest.raises(DupeUidError):
+            system.constraints.append(system.constraints[0])

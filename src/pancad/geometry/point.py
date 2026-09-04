@@ -45,10 +45,13 @@ class Point(AbstractGeometry):
         arguments or as a single vector.
     :param uid: The unique ID of the point for interoperable CAD identification.
     """
-    def __init__(self, *components: float | Collection[float], uid: Optional[str | UUID]=None):
+    def __init__(self,
+                 *components: float | Collection[float],
+                 uid: Optional[str | UUID]=None,
+                 name: str | None=None):
         self.uid = uid
         self.cartesian = parse_vector(*components)
-        super().__init__({ConstraintReference.CORE: self})
+        super().__init__({ConstraintReference.CORE: self}, name=name)
 
     # Class Methods #
     @classmethod
