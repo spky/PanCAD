@@ -104,6 +104,32 @@ class TestSketchElementResolution:
             # Split off first qualified name prefix since the sketch doesn't contain itself.
             assert thing.qualified_name.split(QUAL_DELIM, 1)[-1] in sketch
 
+    def test_rejects_duplicate_name_when_geometry_is_added(self,
+                                                            empty_sketch: Sketch) -> None:
+        """A geometry name must be unique before the element enters the sketch scope."""
+        first = Point(0, 0, name="shared_name")
+        duplicate = Point(1, 1, name="shared_name")
+        empty_sketch.geometry_system.geometry.append(first)
+
+        with pytest.raises(ValueError, match="shared_name"):
+            empty_sketch.geometry_system.geometry.append(duplicate)
+
+        assert list(empty_sketch.geometry_system.geometry) == [first]
+        assert duplicate.system is None
+
+    def test_rejects_name_shared_by_geometry_and_constraint(self,
+                                                             empty_sketch: Sketch) -> None:
+        """Geometry and constraints share one namespace in a sketch system."""
+        point = Point(0, 0, name="shared_name")
+        empty_sketch.geometry_system.geometry.append(point)
+        constraint = make_constraint(SC.FIXED, point, name="shared_name")
+
+        with pytest.raises(ValueError, match="shared_name"):
+            empty_sketch.geometry_system.constraints.append(constraint)
+
+        assert not empty_sketch.geometry_system.constraints
+        assert constraint.system is None
+
 
 class TestSketchGeometryList:
     """Tests for confirming that Sketch system geometry lists are correctly constructed,

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, overload, Generic, TypeVar
 
 from pancad.abstract import PancadThing, AbstractConstraint, AbstractFeature, AbstractGeometry
 from pancad.exceptions import (
+    DupeNameError,
     DupeUidError,
     HasDependentsError,
     MissingCADDependencyError,
@@ -77,6 +78,15 @@ class UniqueCADList(MutableSequence[T], Generic[T], metaclass=ABCMeta):
         if value in self:
             msg = f"{self._type_name} {value} uid: {value.uid} already in list."
             raise DupeUidError(msg)
+
+    def _raise_if_duped_name(self, value: T, replaced: T | None=None) -> None:
+        """Reject a named value when its owning scope already resolves that name."""
+        if value.name is None:
+            return
+        existing = self._parent.resolve_local(value.name)
+        if existing is not None and existing is not replaced:
+            msg = f"Name '{value.name}' is already used in system {self._parent}"
+            raise DupeNameError(msg)
 
     def _raise_if_has_dependents(self, value: T) -> None:
         """Raises a HasDependentsError if geometry still has
@@ -152,6 +162,7 @@ class SystemFeatureList(UniqueCADList[AbstractFeature]):
         """
         self._raise_if_missing_dependencies(value)
         self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value)
         self._values.insert(index, value)
         self._assign_system(value)
 
@@ -220,6 +231,7 @@ class SystemFeatureList(UniqueCADList[AbstractFeature]):
         previous_value = self._values[index] # -1 is not allowed here
         if self[index].uid != value.uid:
             self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value, previous_value)
         self._raise_if_has_dependents(self[index])
         self._values[index] = value
         self._assign_system(value)
@@ -250,6 +262,7 @@ class FeatureConstraintList(UniqueCADList[AbstractConstraint]):
         """
         self._raise_if_missing_dependencies(value)
         self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value)
         self._values.insert(index, value)
         self._assign_system(value)
 
@@ -306,6 +319,7 @@ class FeatureConstraintList(UniqueCADList[AbstractConstraint]):
         self._raise_if_missing_dependencies(value)
         if self[index].uid != value.uid:
             self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value, previous_value)
         self._raise_if_has_dependents(self[index])
         self._values[index] = value
         self._assign_system(value)
@@ -347,6 +361,7 @@ class FeatureGeometryList(MutableSequence[AbstractGeometry]):
         :raises DupeUidError: When a duped uid value is added to the list.
         """
         self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value)
         self._values.insert(index, value)
         self._assign_feature(value)
 
@@ -362,6 +377,16 @@ class FeatureGeometryList(MutableSequence[AbstractGeometry]):
         if value in self:
             msg = f"{self._type_name} {value} uid: {value.uid} already in list."
             raise DupeUidError(msg)
+
+    def _raise_if_duped_name(self, value: AbstractGeometry,
+                              replaced: AbstractGeometry | None=None) -> None:
+        """Reject a geometry name that already resolves in the feature scope."""
+        if value.name is None:
+            return
+        existing = next((item for item in self._values if item.name == value.name), None)
+        if existing is not None and existing is not replaced:
+            msg = f"Name '{value.name}' is already used in feature {self._parent}"
+            raise DupeNameError(msg)
 
     def _assign_feature(self, value: AbstractGeometry) -> None:
         if value.feature is not None:
@@ -403,6 +428,7 @@ class FeatureGeometryList(MutableSequence[AbstractGeometry]):
         previous_value = self._values[index]
         if self[index].uid != value.uid:
             self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value, previous_value)
         self._values[index] = value
         self._assign_feature(value)
         # Remove the feature from exiting geometry
@@ -472,6 +498,7 @@ class SketchGeometryList(UniqueSketchElementList[AbstractGeometry]):
         :raises DupeUidError: When a duped uid value is added to the list.
         """
         self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value)
         self._values.insert(index, value)
         self._assign_system(value)
 
@@ -498,6 +525,7 @@ class SketchGeometryList(UniqueSketchElementList[AbstractGeometry]):
         previous_value = self._values[index] # -1 is not allowed here
         if self[index].uid != value.uid:
             self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value, previous_value)
         self._raise_if_has_dependents(self[index])
         self._values[index] = value
         self._assign_system(value)
@@ -534,6 +562,7 @@ class SketchConstraintList(UniqueSketchElementList[AbstractConstraint]):
         """
         self._raise_if_missing_dependencies(value)
         self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value)
         self._values.insert(index, value)
         self._assign_system(value)
 
@@ -569,6 +598,7 @@ class SketchConstraintList(UniqueSketchElementList[AbstractConstraint]):
         previous_value = self._values[index] # -1 is not allowed here
         if self[index].uid != value.uid:
             self._raise_if_duped_uid(value)
+        self._raise_if_duped_name(value, previous_value)
         self._raise_if_has_dependents(self[index])
         self._values[index] = value
         self._assign_system(value)

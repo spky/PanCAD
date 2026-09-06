@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from pancad.constants import ConstraintReference, QUAL_DELIM
+from pancad.exceptions import DupeNameError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -39,15 +40,23 @@ class PancadThing(ABC):
     def name(self) -> str | None:
         """The name of the element. Must either be None or unique in its system.
 
-        :raises ValueError: When trying to set the name to an already taken system name.
+        :raises DupeNameError: When the requested name already exists in the element's scope.
         """
         return self._name
 
     @name.setter
     def name(self, value: str | None) -> None:
-        if value is not None and self.system and value in self.system:
-            raise ValueError(f"Name '{value}' is already used in system {self.system}")
+        scope = self._name_scope
+        if value is not None and scope:
+            existing = scope.resolve_local(value)
+            if existing is not None and existing is not self:
+                raise DupeNameError(f"Name '{value}' is already used in scope {scope}")
         self._name = value
+
+    @property
+    def _name_scope(self) -> PancadThing | None:
+        """Return the scope in which this element's name must be unique."""
+        return self.system
 
     @property
     def uid(self) -> str | UUID:
@@ -206,6 +215,11 @@ class AbstractGeometry(PancadThing):
         for _, child in self.children.items():
             if child.uid != self.uid:
                 child.feature = value
+
+    @property
+    def _name_scope(self) -> PancadThing | None:
+        """Geometry owned by a feature uses that feature's local name scope."""
+        return self.feature or self.system
 
     @property
     def system(self) -> AbstractGeometrySystem | None:

@@ -92,3 +92,28 @@ def test_is_equal(element, other, expected):
     compares geometric equality by using known pairings of geometry and features.
     """
     assert element.is_equal(other) == expected
+
+
+def test_rejects_duplicate_name_when_geometry_is_renamed() -> None:
+    """Renaming geometry cannot make its name collide inside the system scope."""
+    first = Point(0, 0, name="first")
+    second = Point(1, 1, name="second")
+    TwoDSketchSystem([first, second])
+
+    with pytest.raises(ValueError, match="first"):
+        second.name = "first"
+
+    assert second.name == "second"
+
+
+def test_rejects_duplicate_name_in_feature_geometry() -> None:
+    """Feature-owned geometry keeps unique names even without an enclosing system."""
+    feature = FeatureContainer()
+    first = Point(0, 0, name="first")
+    second = Point(1, 1, name="second")
+    feature.feature_geometry.extend([first, second])
+
+    with pytest.raises(ValueError, match="first"):
+        second.name = "first"
+
+    assert second.name == "second"
