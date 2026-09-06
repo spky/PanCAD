@@ -2,11 +2,7 @@
 from __future__ import annotations
 
 import math
-import os
-from functools import cache
 from typing import TYPE_CHECKING
-import tomllib
-from pathlib import Path
 import sys
 
 import pytest
@@ -24,6 +20,7 @@ from pancad.geometry.extrude import Extrude, ExtrudeSettings
 from pancad.utils import trigonometry as trig, quat
 
 from tests.testing_utils import sketch_gen
+from tests.testing_utils.data_collectors import read_test_data_file, resolve_test_data_path
 from tests._typing import GeometrySpec, ConstraintSpec, FeatureSpec
 
 if TYPE_CHECKING:
@@ -32,36 +29,6 @@ if TYPE_CHECKING:
 
     from pancad.utils.pancad_types import SpaceVector
     from tests._typing import GeometrySampleData, ChangeTest, TestGroup
-
-@cache
-def read_test_data_file(path: Path) -> dict[str, Any]:
-    """Returns the data from the test's toml file."""
-    with open(path, "rb") as file:
-        return tomllib.load(file)
-
-@cache
-def resolve_test_data_path(fixture_name: str) -> Path:
-    """Returns the fixture's associated test data file path.
-
-    :raises FileNotFoundError: When the file for the fixture name could not be found.
-    """
-    try:
-        path = next(v for k, v in _map_data_paths().items() if fixture_name.startswith(k))
-    except StopIteration as exc:
-        raise FileNotFoundError(fixture_name) from exc
-    return path
-
-@cache
-def _map_data_paths() -> dict[str, Path]:
-    # Returns a mapping of the toml filename with no extension to the path of the datafile.
-    paths: dict[str, Path] = {}
-    for dirpath, _, filenames in os.walk(Path(__file__).parent):
-        dirpath_path = Path(dirpath)
-        for name in filenames:
-            path = dirpath_path / name
-            if path.suffix == ".toml":
-                paths[path.stem] = path
-    return paths
 
 def read_vector(raw_vector: Any,
                 normalize: bool=False,

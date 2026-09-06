@@ -1,7 +1,6 @@
 """Tests for pancad's LineSegment class"""
 from __future__ import annotations
 
-import itertools
 import math
 import unittest
 from typing import TYPE_CHECKING
