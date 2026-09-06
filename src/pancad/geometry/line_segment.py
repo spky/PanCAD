@@ -140,8 +140,9 @@ class LineSegment(AbstractGeometry):
 
     def update(self, other: LineSegment) -> Self:
         """Updates the points of the LineSegment to match the points of another LineSegment."""
-        self.start.update(other.start)
-        self.end.update(other.end)
+        # The other LineSegment has already checked location uniqueness, so directly set points.
+        self._start.update(other.start)
+        self._end.update(other.end)
         return self
 
     # Python Dunders
