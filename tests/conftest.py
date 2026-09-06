@@ -17,42 +17,20 @@ from pancad.filetypes.part_file import PartFile
 from pancad.constraints.state_constraint import AlignAxes
 from pancad.constants import FeatureType as FT
 from pancad.geometry.extrude import Extrude, ExtrudeSettings
-from pancad.utils import trigonometry as trig, quat
+from pancad.utils import quat
 
 from tests.testing_utils import sketch_gen
-from tests.testing_utils.data_collectors import read_test_data_file, resolve_test_data_path
+from tests.testing_utils.data_collectors import (
+    read_test_data_file, resolve_test_data_path, resolve_test_data_keys, read_vector
+)
 from tests._typing import GeometrySpec, ConstraintSpec, FeatureSpec
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
 
-    from pancad.utils.pancad_types import SpaceVector
     from tests._typing import GeometrySampleData, ChangeTest, TestGroup
 
-def read_vector(raw_vector: Any,
-                normalize: bool=False,
-                polar_spherical: bool=False) -> SpaceVector:
-    """Returns a 2 or 3 float long vector from an unknown datatype, usually read from a toml file.
-
-    :param raw_vector: An object that should be a vector.
-    :param normalize: Whether to normalize the vector before returning it.
-    :param polar_spherical: Whether the 2nd and 3rd (if present) components should be converted to
-        radians.
-
-    :raises ValueError: When the vector components could not be converted into floats.
-    :raises AssertionError: When the vector's length is not 2 or 3.
-    """
-    vector = tuple(map(float, raw_vector))
-    assert len(vector) == 2 or len(vector) == 3
-    if polar_spherical:
-        if len(vector) == 2: # Polar
-            vector = (vector[0], math.radians(vector[1]))
-        else: # Spherical
-            vector = (vector[0], math.radians(vector[1]), math.radians(vector[2]))
-    elif normalize:
-        vector = trig.to_1d_tuple(trig.get_unit_vector(vector))
-    return vector
 
 def read_quaternion(raw_quat: Any) -> quat.Quat:
     """Returns a quaternion from an unknown datatype, usually read from a toml file.
@@ -64,30 +42,6 @@ def read_quaternion(raw_quat: Any) -> quat.Quat:
     axis = read_vector(raw_quat["axis"])
     assert len(axis) == 3
     return quat.Quat.from_angle(angle, axis)
-
-def resolve_test_data_keys(fixture_name: str, data: dict[str, Any]) -> list[str]:
-    """Returns a list of keys found in the fixture's name that match keys in the data.
-    Progressively searches down the data's nested dictionary for keys that match the start of the
-    fixture name with the previous names removed. Underscores preceding keys are ignored.
-
-    :raises LookupError: When a key cannot be found.
-    :raises RuntimeError: When the string loop fails to reduce the length of the key string.
-    """
-    key_str = fixture_name.removeprefix(resolve_test_data_path(fixture_name).stem).lstrip("_")
-    keys: list[str] = []
-    while key_str:
-        check_str = key_str
-        try:
-            key, data = next((k, v) for k, v in data.items() if key_str.startswith(k))
-        except StopIteration as exc:
-            raise LookupError("Could not find a key with the same start as"
-                              f"{key_str} in {data.keys()}") from exc
-        keys.append(key)
-        key_str = key_str.removeprefix(key).lstrip("_")
-        if check_str == key_str:
-            raise RuntimeError("Loop stuck, check/key strings match even after prefix removed."
-                               f" key string: {key_str}")
-    return keys
 
 def _read_geometry_data_entry(entry: dict[str, Any]) -> GeometrySampleData:
     # Reads a geometry entry from a data file and converts its vectors/scalars from Any to floats
