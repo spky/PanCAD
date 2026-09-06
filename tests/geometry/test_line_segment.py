@@ -17,48 +17,44 @@ from pancad.utils import trigonometry as trig, solvers
 if TYPE_CHECKING:
     from typing import Literal
 
-ROUNDING_PLACES = 10
+    from tests._typing import GeometrySampleData
 
-@pytest.mark.parametrize(
-    "segment, along, expected",
-    [
-        (LineSegment((0, 0), (1, 2)), None, math.hypot(1, 2)),
-        (LineSegment((0, 0), (1, 2)), "x", 1),
-        (LineSegment((0, 0), (1, 2)), "y", 2),
-        (LineSegment((0, 0, 0), (1, 2, 3)), None, math.hypot(1, 2, 3)),
-        (LineSegment((0, 0, 0), (1, 2, 3)), "x", 1),
-        (LineSegment((0, 0, 0), (1, 2, 3)), "y", 2),
-        (LineSegment((0, 0, 0), (1, 2, 3)), "z", 3),
-        (LineSegment((1, 2), (0, 0)), None, math.hypot(1, 2)),
-        (LineSegment((1, 2), (0, 0)), "x", 1),
-        (LineSegment((1, 2), (0, 0)), "y", 2),
-        (LineSegment((1, 2, 3), (0, 0, 0)), None, math.hypot(1, 2, 3)),
-        (LineSegment((1, 2, 3), (0, 0, 0)), "x", 1),
-        (LineSegment((1, 2, 3), (0, 0, 0)), "y", 2),
-        (LineSegment((1, 2, 3), (0, 0, 0)), "z", 3),
-    ]
-)
-def test_get_length(segment: LineSegment, along: Literal["x", "y", "z", None], expected):
-    """Test the get_length geometry solver's ability to get lengths along the
-    same direction as the line and along different axes."""
-    assert solvers.get_length(segment, along) == pytest.approx(expected)
+@pytest.fixture(name="line_segment")
+def fixture_line_segment(data_line_segment: GeometrySampleData,
+                         request: pytest.FixtureRequest) -> LineSegment:
+    """Returns a sample LineSegment read from a test data file to test with."""
+    id_ = request.node.callspec.id
+    vectors = data_line_segment["vectors"]
+    if "start_end_segments" in id_:
+        return LineSegment(vectors["start"], vectors["end"])
+    raise ValueError(f"Unexpected data group: {id_}")
 
+class TestSolvers:
+    """Tests for geometry property solving methods separate from LineSegment."""
 
-@pytest.mark.parametrize(
-    "segment, along, msg",
-    [
-        pytest.param(LineSegment((0, 0), (1, 1)), "z",
-                     r"Expected one of \['x', 'y'\]", id="2dZ"),
-        pytest.param(LineSegment((0, 0, 0), (1, 1, 1)),
-                     "W", r"Expected one of \['x', 'y', 'z'\]", id="3dW"),
-    ]
-)
-def test_get_length_excs(segment, along, msg):
-    """Test that the exceptions of solver.get_length activate and provide the
-    right message.
-    """
-    with pytest.raises(TypeError, match=msg):
-        solvers.get_length(segment, along)
+    def test_get_length(self, line_segment: LineSegment) -> None:
+        """Test that the length of the line in specified directions can be solved for."""
+        letters: tuple[Literal["x", "y", "z"], ...] = ("x", "y", "z")
+        for start_c, end_c, letter in zip(line_segment.start, line_segment.end, letters):
+            assert solvers.get_length(line_segment, letter) == abs(start_c - end_c) # Specified
+        direction_vector = line_segment.start - line_segment.end
+        assert solvers.get_length(line_segment) == math.hypot(*direction_vector) # Overall
+
+    @pytest.mark.parametrize(
+        "segment, along, msg",
+        [
+            pytest.param(LineSegment((0, 0), (1, 1)), "z",
+                         r"Expected one of \['x', 'y'\]", id="2dZ"),
+            pytest.param(LineSegment((0, 0, 0), (1, 1, 1)),
+                         "W", r"Expected one of \['x', 'y', 'z'\]", id="3dW"),
+        ]
+    )
+    def test_get_length_excs(self, segment: LineSegment, along: str, msg: str) -> None:
+        """Test that the exceptions of solver.get_length activate and provide the
+        right message.
+        """
+        with pytest.raises(TypeError, match=msg):
+            solvers.get_length(segment, along) # type: ignore # Testing if user ignores types.
 
 @pytest.mark.parametrize(
     "segment, value, from_, along, expected",
@@ -149,7 +145,6 @@ class TestLineSegmentInit2d(unittest.TestCase):
         for check, test in zip(self.check_features, test_features):
             with self.subTest(test=test, check=check):
                 self.assertTrue(test.is_equal(check))
-                # assertPancadAlmostEqual(self, test, check, ROUNDING_PLACES)
 
 class TestLineSegmentInit3d(unittest.TestCase):
     def setUp(self):
@@ -271,9 +266,9 @@ class TestLineSegmentGetters(unittest.TestCase):
         self.axis_length_tests = list(zip(test_lines, axis_lengths))
 
     def test_direction_getter(self):
-        for line_segment, direction in self.direction_tests:
-            with self.subTest(line_segment=line_segment, direction=direction):
-                np.testing.assert_allclose(line_segment.direction, direction)
+        for segment, direction in self.direction_tests:
+            with self.subTest(line_segment=segment, direction=direction):
+                np.testing.assert_allclose(segment.direction, direction)
 
 class TestLineSegmentUpdate(unittest.TestCase):
 
