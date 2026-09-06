@@ -25,10 +25,10 @@ if TYPE_CHECKING:
 class LineSegment(AbstractGeometry):
     """A class representing finite lines in 2D and 3D space.
 
-    :param start: The start point of the line segment.
-    :param end: The end point of the line segment.
-    :param uid: The unique id of the line segment.
-    :param name: The user defined name of the line segment.
+    :param start: The start location. Must have 2 or 3 components.
+    :param end: The end location. Must have 2 or 3 components.
+    :param uid: A unique id. Will be auto-generated when not provided.
+    :param name: The user defined name.
     """
     def __init__(self, start: Collection[float], end: Collection[float], *,
                  uid: str | None=None,
@@ -48,18 +48,17 @@ class LineSegment(AbstractGeometry):
                                 *components: float | Collection[float],
                                 uid: str | None=None,
                                 name: str | None=None) -> Self:
-        """Returns a LineSegment defined by a point and a length, azimuth angle
-        phi, and inclination angle theta relative to the point.
+        """Returns a LineSegment defined by a point and a length, azimuth angle (phi), and
+        inclination angle (theta) relative to the point.
 
-        :param point: A Point, or iterable with 2 or 3 dimensions.
-        :param components: The length (r), azimuth angle (phi), and (for 3D
-            only) the inclination angle (theta) of the vector from the start
-            point to the end point. A polar/spherical vector. Angles must be in
-            radians.
-        :returns: A line segment with its start at point, and end at the point's
-            position plus the polar/spherical vector.
-        :raises TypeError:  When provided a single component that is not Sequence
-            or when 2 or more non-Real arguments.
+        :param start: The start location. Must have 2 or 3 components.
+        :param components: The length (r), azimuth angle (phi), and, if 3D, the inclination
+            angle (theta) of the vector from the start point to the end point. A polar/spherical
+            vector. Angles must be in radians.
+        :returns: A line segment with its start at point, and end at the point's position plus the
+            polar/spherical vector.
+        :raises TypeError:  When provided components that are not a Collection type or when it has
+            non-number arguments.
         :raises ValueError: When provided too many components or a start point
             and components with differing dimensions.
         """
@@ -81,14 +80,11 @@ class LineSegment(AbstractGeometry):
     # Properties
     @property
     def direction(self) -> SpaceVector:
-        """The direction of the line segment defined as the unit vector pointing
-        from start to end with cartesian components.
+        """The direction of the line segment defined as the unit vector pointing from start to end
+        with cartesian components.
 
-        The direction will not always be the same sign as the LineSegment's Line
-        direction since it depends on the start/end order and Line's does not.
-
-        :getter: Returns the direction of the line segment.
-        :setter: Read-only.
+        .. note:: The direction will not always be the same sign as the LineSegment's Line
+            direction since it depends on the start/end order and Line's does not.
         """
         vector_ab = np.array(self.end) - np.array(self.start)
         unit_vector_ab = trig.get_unit_vector(vector_ab)
@@ -96,12 +92,12 @@ class LineSegment(AbstractGeometry):
 
     @property
     def start(self) -> Point:
-        """The start Point of the line segment.
+        """The start Point of the LineSegment.
 
         :getter: Returns the start point of the line segment.
         :setter: Updates the start point to match the location of a new point.
-        :raises ValueError: When trying to update the point to a be at the same
-            location as the end point or to a new dimension.
+        :raises ValueError: When trying to update the point to a be at the same location as the
+            end point or to a new dimension.
         """
         return self._start
 
@@ -118,8 +114,8 @@ class LineSegment(AbstractGeometry):
 
         :getter: Returns the end point of the line segment.
         :setter: Updates the end point to match the location of a new point.
-        :raises ValueError: When trying to update the point to a be at the same
-            location as the start point or to a new dimension.
+        :raises ValueError: When trying to update the point to a be at the same location as the
+            start point or to a new dimension.
         """
         return self._end
 
@@ -132,29 +128,18 @@ class LineSegment(AbstractGeometry):
 
     # Public Methods #
     def copy(self) -> LineSegment:
-        """Returns a copy of the LineSegment.
-
-        :returns: A new LineSegment with new start and end points at the same
-            position as this LineSegment, but with no uids assigned.
-        """
+        """Returns an independent copy of the LineSegment."""
         return LineSegment(self.start.copy(), self.end.copy())
 
     def is_equal(self, other: LineSegment) -> bool:
         return self.start.is_equal(other.start) and self.end.is_equal(other.end)
 
     def get_line(self) -> Line:
-        """Returns the infinite Line coincident with the start and end of the
-        LineSegment.
-        """
+        """Returns the Line coincident with the start and end of the LineSegment."""
         return Line.from_two_points(self.start, self.end)
 
     def update(self, other: LineSegment) -> Self:
-        """Updates the points of the line segment to match the points of another
-        line segment.
-
-        :param other: The line segment to update to.
-        :returns: The updated LineSegment.
-        """
+        """Updates the points of the LineSegment to match the points of another LineSegment."""
         self.start.update(other.start)
         self.end.update(other.end)
         return self
@@ -166,14 +151,11 @@ class LineSegment(AbstractGeometry):
         raise TypeError(f"Expected sqlite3.PrepareProtocol, got {protocol}")
 
     def __copy__(self) -> LineSegment:
-        """Returns a copy of the LineSegment that has the same points and line,
-        but no assigned uid.
-        """
         return self.copy()
 
     def __len__(self) -> int:
-        """Returns the number of elements in the line segment's start, which
-        is equivalent to the line segment's number of dimnesions.
+        """Returns the number of elements in the line segment's start, which is equivalent to the
+        line segment's number of dimnesions.
         """
         return len(self.start)
 
