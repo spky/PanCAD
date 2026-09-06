@@ -3,23 +3,23 @@ graphics, and other geometry use cases.
 """
 from __future__ import annotations
 
-from collections.abc import Sequence
-from numbers import Real
 from sqlite3 import PrepareProtocol
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from pancad.abstract import AbstractGeometry
-from pancad.constants import ConstraintReference
+from pancad.constants import ConstraintReference as CR
 from pancad.geometry.point import Point
 from pancad.geometry.line import Line
 from pancad.utils import trigonometry as trig
 from pancad.utils.geometry import parse_vector
-from pancad.utils.pancad_types import VectorLike
 
 if TYPE_CHECKING:
-    from typing import Self
+    from collections.abc import Collection
+    from typing import Self, Type
+
+    from pancad.utils.pancad_types import SpaceVector
 
 
 class LineSegment(AbstractGeometry):
@@ -28,39 +28,26 @@ class LineSegment(AbstractGeometry):
     :param start: The start point of the line segment.
     :param end: The end point of the line segment.
     :param uid: The unique id of the line segment.
+    :param name: The user defined name of the line segment.
     """
-    def __init__(self,
-                 start: Point | VectorLike,
-                 end: Point | VectorLike,
-                 uid: str=None) -> None:
-        if isinstance(start, (Sequence, np.ndarray)):
-            start = Point(start)
-        if isinstance(end, (Sequence, np.ndarray)):
-            end = Point(end)
-        if any(not isinstance(point, Point) for point in [start, end]):
-            types = [type(point) for point in [start, end]]
-            raise TypeError(f"Expected Point or VectorLike, got {types}")
-        self._start = start
-        self._end = end
+    def __init__(self, start: Collection[float], end: Collection[float], *,
+                 uid: str | None=None,
+                 name: str | None=None) -> None:
+        self._start = Point(start)
+        self._end = Point(end)
         if self.start.is_equal(self.end):
-            msg = ("start/end points cannot be at the same location."
-                   f" Got: {start} and {end}")
-            raise ValueError(msg)
+            raise ValueError(f"start/end cannot be at the same location. Got: {start} and {end}")
         self.uid = uid
-        super().__init__(
-            {
-                ConstraintReference.CORE: self,
-                ConstraintReference.START: self.start,
-                ConstraintReference.END: self.end,
-            }
-        )
+        children = {CR.CORE: self, CR.START: self.start, CR.END: self.end}
+        super().__init__(children, name=name)
 
     # Class Methods
     @classmethod
     def from_point_length_angle(cls,
-                                start: Point,
-                                *components: Real | Sequence[Real] | np.ndarray,
-                                uid=None):
+                                start: Collection[float],
+                                *components: float | Collection[float],
+                                uid: str | None=None,
+                                name: str | None=None) -> Self:
         """Returns a LineSegment defined by a point and a length, azimuth angle
         phi, and inclination angle theta relative to the point.
 
@@ -77,18 +64,23 @@ class LineSegment(AbstractGeometry):
             and components with differing dimensions.
         """
         vector = parse_vector(*components)
+        cartesian: SpaceVector
         if len(vector) == 2:
             cartesian = trig.polar_to_cartesian(vector)
         else:
             cartesian = trig.spherical_to_cartesian(vector)
-        if len(start) != len(cartesian):
-            raise ValueError("start and vector must be the same dimension,"
-                             f" got: {len(start)} and {len(cartesian)}")
-        return cls(start, np.array(start) + cartesian, uid)
+        try:
+            end = np.array(start) + cartesian
+        except ValueError as exc:
+            if len(start) != len(cartesian):
+                msg = f"start/components dimension mismatch: {start}, {components}"
+                raise ValueError(msg) from exc
+            raise
+        return cls(start, end, uid=uid, name=name)
 
     # Properties
     @property
-    def direction(self) -> tuple[Real]:
+    def direction(self) -> SpaceVector:
         """The direction of the line segment defined as the unit vector pointing
         from start to end with cartesian components.
 
@@ -165,9 +157,10 @@ class LineSegment(AbstractGeometry):
         """
         self.start.update(other.start)
         self.end.update(other.end)
+        return self
 
     # Python Dunders
-    def __conform__(self, protocol: PrepareProtocol) -> str:
+    def __conform__(self, protocol: Type[PrepareProtocol]) -> str:
         if protocol is PrepareProtocol:
             return ";".join(map(str, [*self.start, *self.end]))
         raise TypeError(f"Expected sqlite3.PrepareProtocol, got {protocol}")

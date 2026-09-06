@@ -136,6 +136,7 @@ files = [
     "src/pancad/geometry/plane.py",
     "src/pancad/geometry/point.py",
     "src/pancad/geometry/line.py",
+    "src/pancad/geometry/line_segment.py",
     "src/pancad/geometry/unique_lists.py",
     "src/pancad/geometry/coordinate_system.py",
     "src/pancad/geometry/system.py",
