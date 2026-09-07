@@ -6,14 +6,11 @@
 from __future__ import annotations
 
 import math
-import unittest
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
 
-from pancad.geometry.point import Point
-from pancad.geometry.line import Line
 from pancad.geometry.line_segment import LineSegment
 from pancad.utils import trigonometry as trig, solvers
 
@@ -62,6 +59,23 @@ def fixture_pla_expected(pla_data: GeometrySampleData) -> LineSegment:
     from a point, length, and angle(s).
     """
     return LineSegment(pla_data["vectors"]["start"], pla_data["vectors"]["end"])
+
+class TestProperties:
+    """Tests for reading and modifying LineSegment properties."""
+
+    def test_direction(self, line_segment: LineSegment) -> None:
+        """Test that the LineSegment's direction is the unit vector pointing from the start point
+        to the end point
+        """
+        expected = trig.get_unit_vector(line_segment.end - line_segment.start)
+        np.testing.assert_allclose(line_segment.direction, expected)
+
+    def test_update(self) -> None:
+        """Test that LineSegment can be updated to match another LineSegment."""
+        segment = LineSegment((0, 0, 0), (1, 0, 0))
+        new = LineSegment((1, 1, 1), (2, 2, 2))
+        segment.update(new)
+        assert segment.is_equal(new)
 
 class TestFromPointLengthAngle:
     """Tests for initializing a LineSegment from a combination of a point, length, and angles."""
@@ -195,50 +209,3 @@ class TestSolvers:
         """
         with pytest.raises(error_type, match=msg):
             solvers.get_fit_box(segment)
-
-class TestLineSegmentGetters(unittest.TestCase):
-
-    def setUp(self):
-        lines = [
-            ((0, 0), (1, 1)),
-            ((0, 1), (1, 2)),
-            ((0, 0, 0), (1, 1, 1)),
-        ]
-        test_lines = [LineSegment(*line) for line in lines]
-        directions = [
-            (1, 1),
-            (1, 1),
-            (1, 1, 1),
-        ]
-        directions = [
-            trig.to_1d_tuple(trig.get_unit_vector(d)) for d in directions
-        ]
-        lengths = [
-            math.hypot(1, 1),
-            math.hypot(1, 1),
-            math.hypot(1, 1, 1),
-        ]
-        axis_lengths = [
-            (1, 1, None),
-            (1, 1, None),
-            (1, 1, 1),
-        ]
-        self.direction_tests = list(zip(test_lines, directions))
-        self.length_tests = list(zip(test_lines, lengths))
-        self.axis_length_tests = list(zip(test_lines, axis_lengths))
-
-    def test_direction_getter(self):
-        for segment, direction in self.direction_tests:
-            with self.subTest(line_segment=segment, direction=direction):
-                np.testing.assert_allclose(segment.direction, direction)
-
-class TestLineSegmentUpdate(unittest.TestCase):
-
-    def test_update(self):
-        ls = LineSegment((0, 0, 0), (1, 0, 0))
-        new = LineSegment((1, 1, 1), (2, 2, 2))
-        ls.update(new)
-        self.assertTrue(ls.is_equal(new))
-
-if __name__ == "__main__":
-    unittest.main()
